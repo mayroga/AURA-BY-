@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+stripe
+python-dotenv
+python-multipart
+google-genai
+openai
+httpx
+psycopg2-binary
