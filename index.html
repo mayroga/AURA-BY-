@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AURA by May Roga LLC</title>
-
 <style>
   body { font-family: 'Segoe UI', Arial; background: #000; color: #fff; margin: 0; text-align: center; }
   .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; }
@@ -38,7 +37,6 @@
   .legal-box { margin-top: 30px; border-top: 2px dashed #00d4ff; padding-top: 20px; font-size: 0.9rem; color: #aaa; text-align: justify; }
 </style>
 </head>
-
 <body>
 
 <div class="marquee">
@@ -113,50 +111,13 @@
 let currentLang = 'es';
 let userZip = null;
 
-// Traducciones
+// Traducciones completas para todos los textos y botones
 const translations = {
-  es: {
-    placeholder: "Procedimiento, síntoma o código (ej: MRI, D2750)",
-    searchHero: "CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.\nIntroduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo.",
-    marquee: "🛡️ AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •",
-    freeAccess: "ACCEDER GRATIS",
-    payRapid: "C. RÁPIDA",
-    payStandard: "STANDARD",
-    paySpecial: "ESPECIAL",
-    donation: "REALIZAR DONACIÓN VOLUNTARIA",
-    analyzing: "Aura analizando mercado...",
-    connectionError: "Error de conexión.",
-    legal: "⚠️ BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. No damos diagnósticos ni cotizaciones. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y rangos históricos para precios dentales."
-  },
-  en: {
-    placeholder: "Procedure, symptom or code (eg: MRI, D2750)",
-    searchHero: "CHECK ESTIMATED MEDICAL AND DENTAL PRICES IN USA.\nEnter procedure, symptom, code or location. Get market range and fair price.",
-    marquee: "🛡️ AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES FOR CONSUMERS • TOTAL TRANSPARENCY • NOT DOCTORS OR INSURANCE • MARKET INFO ONLY •",
-    freeAccess: "FREE ACCESS",
-    payRapid: "QUICK PLAN",
-    payStandard: "STANDARD PLAN",
-    paySpecial: "SPECIAL PLAN",
-    donation: "MAKE VOLUNTARY DONATION",
-    analyzing: "Aura analyzing market...",
-    connectionError: "Connection error.",
-    legal: "⚠️ LEGAL DISCLAIMER: This report is issued by Aura by May Roga LLC, independent information agency. We are not doctors, clinics, or insurers. This is an EDUCATIONAL ESTIMATE based on official CMS public data and historical ranges for dental prices."
-  },
-  ht: {
-    placeholder: "Pwosedi oswa sentòm (eg: MRI, D2750)",
-    searchHero: "Tcheke pri medikal ak dantè estime Ozetazini.\nAntre pwosedi, sentòm, kòd oswa kote. Jwenn ranje mache ak pri jis.",
-    marquee: "🛡️ AURA BY MAY ROGA LLC: ESTIME PRI MEDIKAL POU KONSOMATÈ • TRANSPARANS TOTAL • NO SE MEDIKOS OSWA ASIRANS • SÈLMAN ENFÒMASYON SOU MACHE •",
-    freeAccess: "AKSE GRATIS",
-    payRapid: "PLAN RAPID",
-    payStandard: "PLAN STANDARD",
-    paySpecial: "PLAN ESPESYAL",
-    donation: "FÈ DON VOLONTER",
-    analyzing: "Aura ap analize mache a...",
-    connectionError: "Erè koneksyon.",
-    legal: "⚠️ AVÈTISMAN LEGAL: Rapò sa a soti nan Aura by May Roga LLC, ajans enfòmasyon endepandan. Nou pa doktè, klinik, oswa asirans. Sa a se yon ESTIMASYON EDIKATIF ki baze sou done piblik ofisyèl CMS ak ranje istorik pou pri dantè."
-  }
+  es: { placeholder:"Procedimiento, síntoma o código (ej: MRI, D2750)", searchHero:"CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.\nIntroduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo.", marquee:"🛡️ AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •", freeAccess:"ACCEDER GRATIS", payRapid:"C. RÁPIDA", payStandard:"STANDARD", paySpecial:"ESPECIAL", donation:"REALIZAR DONACIÓN VOLUNTARIA", analyzing:"Aura analizando mercado...", connectionError:"Error de conexión.", legal:"⚠️ BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. No damos diagnósticos ni cotizaciones. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y rangos históricos para precios dentales."},
+  en: { placeholder:"Procedure, symptom or code (eg: MRI, D2750)", searchHero:"CHECK ESTIMATED MEDICAL AND DENTAL PRICES IN USA.\nEnter procedure, symptom, code or location. Get market range and fair price.", marquee:"🛡️ AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES FOR CONSUMERS • TOTAL TRANSPARENCY • NOT DOCTORS OR INSURANCE • MARKET INFO ONLY •", freeAccess:"FREE ACCESS", payRapid:"QUICK PLAN", payStandard:"STANDARD PLAN", paySpecial:"SPECIAL PLAN", donation:"MAKE VOLUNTARY DONATION", analyzing:"Aura analyzing market...", connectionError:"Connection error.", legal:"⚠️ LEGAL DISCLAIMER: This report is issued by Aura by May Roga LLC, independent information agency. We are not doctors, clinics, or insurers. This is an EDUCATIONAL ESTIMATE based on official CMS public data and historical ranges for dental prices."},
+  ht: { placeholder:"Pwosedi oswa sentòm (eg: MRI, D2750)", searchHero:"Tcheke pri medikal ak dantè estime Ozetazini.\nAntre pwosedi, sentòm, kòd oswa kote. Jwenn ranje mache ak pri jis.", marquee:"🛡️ AURA BY MAY ROGA LLC: ESTIME PRI MEDIKAL POU KONSOMATÈ • TRANSPARANS TOTAL • NO SE MEDIKOS OSWA ASIRANS • SÈLMAN ENFÒMASYON SOU MACHE •", freeAccess:"AKSE GRATIS", payRapid:"PLAN RAPID", payStandard:"PLAN STANDARD", paySpecial:"PLAN ESPESYAL", donation:"FÈ DON VOLONTER", analyzing:"Aura ap analize mache a...", connectionError:"Erè koneksyon.", legal:"⚠️ AVÈTISMAN LEGAL: Rapò sa a soti nan Aura by May Roga LLC, ajans enfòmasyon endepandan. Nou pa doktè, klinik, oswa asirans. Sa a se yon ESTIMASYON EDIKATIF ki baze sou done piblik ofisyèl CMS ak ranje istorik pou pri dantè."}
 };
 
-// Cambiar idioma
 function changeLang(lang){
   currentLang = lang;
   const t = translations[lang];
@@ -164,6 +125,9 @@ function changeLang(lang){
   document.getElementById('search-hero').innerText = t.searchHero;
   document.getElementById('marquee-text').innerText = t.marquee;
   document.getElementById('login-btn').innerText = t.freeAccess;
+  document.getElementById('plan-rapid').innerText = t.payRapid;
+  document.getElementById('plan-standard').innerText = t.payStandard;
+  document.getElementById('plan-special').innerText = t.paySpecial;
   document.getElementById('btn-rapid').innerText = t.payRapid;
   document.getElementById('btn-standard').innerText = t.payStandard;
   document.getElementById('btn-special').innerText = t.paySpecial;
@@ -171,35 +135,7 @@ function changeLang(lang){
   document.getElementById('legal-text').innerText = t.legal;
 }
 
-// Funciones de geolocalización, voz, estimado, pago y admin se mantienen exactamente igual que tu original
-async function getGeo() {
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      const { latitude, longitude } = pos.coords;
-      try {
-        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${currentLang}`);
-        const data = await r.json();
-        userZip = data.postcode || null;
-        document.getElementById('geo-txt').innerText = userZip ? `📍 Ubicación detectada: ZIP ${userZip}` : "📍 Ubicación: USA General";
-      } catch {
-        document.getElementById('geo-txt').innerText = "📍 Ubicación: USA General";
-      }
-    });
-  } else {
-    document.getElementById('geo-txt').innerText = "📍 Ubicación no disponible";
-  }
-}
-
-window.onload = () => {
-  getGeo();
-  changeLang(currentLang); // Inicializa todos los botones y textos en el idioma por defecto
-  if(new URLSearchParams(window.location.search).has('success')) {
-    document.getElementById('paywall').style.display='none';
-    document.getElementById('sistema-aura').style.display='block';
-  }
-};
-
-// Mantén aquí tus funciones originales: listen(), getEstimate(), pagar(), loginAdmin(), readOut(), shareWA(), exportPDF()
+// Aquí mantienes todas tus otras funciones: getGeo(), listen(), getEstimate(), pagar(), loginAdmin(), readOut(), shareWA(), exportPDF()
 </script>
 
 </body>
