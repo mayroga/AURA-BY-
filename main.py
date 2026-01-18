@@ -6,6 +6,9 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from dotenv import load_dotenv
+import requests
+import pandas as pd
+from datetime import datetime
 
 load_dotenv()
 app = FastAPI()
@@ -47,7 +50,63 @@ app.add_middleware(
 )
 
 # ==============================
-# Función SQL avanzada
+# FUNCIONES SQL Y CMS PUBLIC DATA
+# ==============================
+
+# Crear o actualizar base de datos desde CMS (mensual)
+def ingest_cms_data():
+    conn = sqlite3.connect("aura_brain.db")
+
+    CMS_DATASETS = {
+        "physician_fee": "https://data.cms.gov/resource/7b3x-3k6u.csv?$limit=50000",
+        "outpatient": "https://data.cms.gov/resource/9wzi-peqs.csv?$limit=50000"
+    }
+
+    for name, url in CMS_DATASETS.items():
+        try:
+            print(f"Descargando dataset {name}...")
+            df = pd.read_csv(url)
+
+            # NORMALIZACIÓN
+            df.columns = [c.lower() for c in df.columns]
+            keep = [c for c in df.columns if c in ["hcpcs_code","cpt_code","payment_amount","state","locality"]]
+            df = df[keep]
+            df["source"] = name
+            df["ingested_at"] = datetime.utcnow()
+
+            df.to_sql("government_prices", conn, if_exists="append", index=False)
+        except Exception as e:
+            print(f"[ERROR INGESTA {name}] {e}")
+
+    conn.close()
+    print("✔ CMS data ingested")
+
+# Consulta de precios legales
+def get_estimated_price(code, state):
+    conn = sqlite3.connect("aura_brain.db")
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount)
+        FROM government_prices
+        WHERE (hcpcs_code=? OR cpt_code=?) AND state=?
+    """, (code, code, state))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if not row or row[0] is None:
+        return None
+
+    avg, min_p, max_p = row
+    return {"average": round(avg,2), "min": round(min_p,2), "max": round(max_p,2)}
+
+# Para precios dentales: solo rangos históricos y educativos
+def dental_fair_price(low, high):
+    return {"fair_min": round(low*0.9,2), "fair_max": round(high*1.1,2)}
+
+# ==============================
+# Función SQL local (existente)
 # ==============================
 def query_sql(termino, zip_user=None):
     try:
@@ -85,12 +144,7 @@ def query_sql(termino, zip_user=None):
             else:
                 national.append(r)
 
-        return {
-            "local": local[:3],
-            "county": county[:3],
-            "state": state[:3],
-            "national": national[:5]
-        }
+        return {"local": local[:3], "county": county[:3], "state": state[:3], "national": national[:5]}
 
     except Exception as e:
         print(f"[ERROR SQL] {e}")
@@ -106,16 +160,14 @@ async def read_index():
         return f.read()
 
 # ==============================
-# Obtener estimado con IA + SQL
+# Obtener estimado con IA + SQL + CMS
 # ==============================
 @app.post("/estimado")
-async def obtener_estimado(
-    consulta: str = Form(...),
-    lang: str = Form("es"),
-    zip_user: str = Form(None)
-):
-    datos_sql = query_sql(consulta, zip_user)
+async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
+    # Ingesta CMS automática (puede ser un cron job mensual en producción)
+    ingest_cms_data()
 
+    datos_sql = query_sql(consulta, zip_user)
     idiomas = {"es": "Español", "en": "English", "ht": "Kreyòl (Haitian Creole)"}
     idioma_destino = idiomas.get(lang, "Español")
 
@@ -127,24 +179,30 @@ CONSULTA DEL USUARIO: {consulta}
 ZIP DETECTADO: {zip_user}
 
 OBJETIVO:
-1) Mostrar al usuario sin seguro los precios más baratos locales, del condado, del estado y nacionales.
-2) Comparar con precio de seguros si existe.
-3) Mostrar opción premium para clientes con alto poder adquisitivo.
-4) Explicación clara y sencilla, resaltando en azul lo que el usuario preguntó.
-5) Incluye top 3 locales, top 3 condado, top 3 estado, top 5 nacionales.
-6) Siempre dar contexto de ahorro y ventajas/desventajas de cada opción.
-7) Resumen final como "libro abierto" para el usuario.
+1) Usar datos públicos oficiales (CMS, Hospital Price Transparency) para calcular precios educativos.
+2) Si es dental, usar rangos históricos y regionales, NO clínicas.
+3) Comparar opciones locales, condado, estado, nacional.
+4) Mostrar opción premium educativa.
+5) Explicación clara y sencilla, resaltando en azul lo que el usuario preguntó.
+6) Siempre contexto de ahorro y ventajas/desventajas.
+7) Resumen final con BLINDAJE LEGAL:
+
+BLINDAJE LEGAL
+Este reporte es emitido por Aura by May Roga LLC,
+agencia de información independiente.
+No somos médicos, clínicas ni aseguradoras.
+No damos diagnósticos ni cotizaciones.
+Este es un ESTIMADO EDUCATIVO.
+El proveedor final define el precio.
 """
 
     motores = []
-
     if client_gemini:
         try:
             modelos_gemini = client_gemini.models.list().data
             if modelos_gemini:
                 motores.append(("gemini", modelos_gemini[0].name))
         except: pass
-
     motores.append(("openai", "gpt-4"))
 
     for motor, modelo in motores:
