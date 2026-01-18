@@ -171,8 +171,9 @@ async def create_checkout(plan: str = Form(...)):
             payment_method_types=["card"],
             line_items=[{"price": PRICE_IDS[plan.lower()], "quantity": 1}],
             mode=mode,
-            success_url="https://aura-iyxa.onrender.com/?success=true",
-            cancel_url="https://aura-iyxa.onrender.com/"
+            success_url="https://aura-by.onrender.com/?success=true",
+cancel_url="https://aura-by.onrender.com/"
+
         )
         return {"url": session.url}
     except Exception as e:
