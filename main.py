@@ -17,23 +17,11 @@ app = FastAPI()
 # Configuración Stripe & IA
 # ==============================
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-# Gemini seguro: si no hay key, no bloquea deploy
-client_gemini = None
-gemini_api_key = os.getenv("GEMINI_API_KEY")
-if gemini_api_key:
-    try:
-        from google import genai
-        client_gemini = genai.Client(api_key=gemini_api_key)
-    except Exception as e:
-        print(f"[WARNING] Gemini no inicializado: {e}")
-else:
-    print("[WARNING] GEMINI_API_KEY no encontrada, Gemini deshabilitado.")
-
-# OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# ==============================
 # Precios de acceso
+# ==============================
 PRICE_IDS = {
     "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
     "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
@@ -41,7 +29,9 @@ PRICE_IDS = {
 }
 LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 
-# Middleware CORS
+# ==============================
+# Middleware
+# ==============================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,196 +40,126 @@ app.add_middleware(
 )
 
 # ==============================
-# FUNCIONES SQL Y CMS PUBLIC DATA
-# ==============================
-
-# Crear o actualizar base de datos desde CMS (mensual)
-def ingest_cms_data():
-    conn = sqlite3.connect("aura_brain.db")
-
-    # ==============================
-    # URLs reales y funcionales de CMS
-    # ==============================
-    CMS_DATASETS = {
-        "physician_fee": "https://data.cms.gov/data-api/v1/dataset/8889d81e-2ee7-448f-8713-f071038289b5/data",
-        "outpatient": "https://data.cms.gov/data-api/v1/dataset/ccbc9a44-40d4-46b4-a709-5caa59212e50/data"
-    }
-
-    for name, url in CMS_DATASETS.items():
-        try:
-            print(f"Descargando dataset {name}...")
-            resp = requests.get(url)
-            resp.raise_for_status()
-            df = pd.DataFrame(resp.json())
-
-            # NORMALIZACIÓN: mantener solo columnas importantes
-            df.columns = [c.lower() for c in df.columns]
-            keep = [c for c in df.columns if c in ["hcpcs_code","cpt_code","payment_amount","provider_state","locality"]]
-            df = df[keep]
-            df["source"] = name
-            df["ingested_at"] = datetime.utcnow()
-
-            df.to_sql("government_prices", conn, if_exists="append", index=False)
-        except Exception as e:
-            print(f"[ERROR INGESTA {name}] {e}")
-
-    conn.close()
-    print("✔ CMS data ingested")
-
-# Consulta de precios legales
-def get_estimated_price(code, state):
-    conn = sqlite3.connect("aura_brain.db")
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount)
-        FROM government_prices
-        WHERE (hcpcs_code=? OR cpt_code=?) AND provider_state=?
-    """, (code, code, state))
-
-    row = cur.fetchone()
-    conn.close()
-
-    if not row or row[0] is None:
-        return None
-
-    avg, min_p, max_p = row
-    return {"average": round(avg,2), "min": round(min_p,2), "max": round(max_p,2)}
-
-# Para precios dentales: solo rangos históricos y educativos
-def dental_fair_price(low, high):
-    return {"fair_min": round(low*0.9,2), "fair_max": round(high*1.1,2)}
-
-# ==============================
-# Función SQL local (existente)
+# SQL LOCAL
 # ==============================
 def query_sql(termino, zip_user=None):
     try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(base_dir, 'cost_estimates.db')
-        if not os.path.exists(db_path):
-            return "SQL_OFFLINE"
-
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        busqueda = f"%{termino.strip().upper()}%"
-
-        cursor.execute("""
-        SELECT cpt_code, description, state, zip_code, low_price, high_price
-        FROM cost_estimates
-        WHERE description LIKE ? OR cpt_code LIKE ?
-        ORDER BY low_price ASC
-        LIMIT 20
-        """, (busqueda, busqueda))
-        results = cursor.fetchall()
+        conn = sqlite3.connect("cost_estimates.db")
+        cur = conn.cursor()
+        q = f"%{termino.upper()}%"
+        cur.execute("""
+            SELECT cpt_code, description, state, zip_code, low_price, high_price
+            FROM cost_estimates
+            WHERE description LIKE ? OR cpt_code LIKE ?
+            LIMIT 20
+        """, (q, q))
+        rows = cur.fetchall()
         conn.close()
-
-        if not results:
-            return "DATO_NO_SQL"
-
-        local, county, state, national = [], [], [], []
-        for r in results:
-            code, desc, state_r, zip_r, low, high = r
-            if zip_user and zip_r == zip_user:
-                local.append(r)
-            elif zip_user and zip_r.startswith(zip_user[:3]):
-                county.append(r)
-            elif zip_user and state_r == zip_user[:2]:
-                state.append(r)
-            else:
-                national.append(r)
-
-        return {"local": local[:3], "county": county[:3], "state": state[:3], "national": national[:5]}
-
-    except Exception as e:
-        print(f"[ERROR SQL] {e}")
-        return f"ERROR_SQL: {str(e)}"
+        return rows if rows else "NO_DATA"
+    except:
+        return "SQL_ERROR"
 
 # ==============================
-# Ruta principal
+# Home
 # ==============================
 @app.get("/", response_class=HTMLResponse)
-async def read_index():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base_dir, "index.html"), "r", encoding="utf-8") as f:
+async def home():
+    with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
 
 # ==============================
-# Obtener estimado con IA + SQL + CMS
+# ESTIMADO PRINCIPAL (REPROGRAMADO)
 # ==============================
 @app.post("/estimado")
-async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    # Ingesta CMS automática (cron mensual recomendado)
-    ingest_cms_data()
-
+async def estimado(
+    consulta: str = Form(...),
+    lang: str = Form("es"),
+    zip_user: str = Form(None)
+):
     datos_sql = query_sql(consulta, zip_user)
-    idiomas = {"es": "Español", "en": "English", "ht": "Kreyòl (Haitian Creole)"}
-    idioma_destino = idiomas.get(lang, "Español")
 
     prompt = f"""
-ERES AURA, MOTOR DE ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES DE MAY ROGA LLC.
-IDIOMA: {idioma_destino}
-DATOS SQL ENCONTRADOS: {datos_sql}
-CONSULTA DEL USUARIO: {consulta}
-ZIP DETECTADO: {zip_user}
+ERES **AURA**, MOTOR DE INTELIGENCIA DE PRECIOS MÉDICOS Y DENTALES EN USA.
+ACTÚAS COMO ANALISTA DE MERCADO PARA CONSUMIDORES.
 
-OBJETIVO:
-1) Usar datos públicos oficiales (CMS, Hospital Price Transparency) para calcular precios educativos.
-2) Si es dental, usar rangos históricos y regionales, NO clínicas.
-3) Comparar opciones locales, condado, estado, nacional.
-4) Mostrar opción premium educativa.
-5) Explicación clara y sencilla, resaltando en azul lo que el usuario preguntó.
-6) Siempre contexto de ahorro y ventajas/desventajas.
-7) Resumen final con BLINDAJE LEGAL:
+CONSULTA: {consulta}
+ZIP USUARIO: {zip_user}
+DATOS BASE: {datos_sql}
 
-BLINDAJE LEGAL
-Este reporte es emitido por Aura by May Roga LLC,
-agencia de información independiente.
+IDIOMA: {lang}
+
+INSTRUCCIONES OBLIGATORIAS:
+
+1️⃣ DESGLOSA EL PROCEDIMIENTO (si son varios, sepáralos).
+2️⃣ PRESENTA PRECIOS EN FORMATO REAL DE CONSUMIDOR:
+
+PARA CADA NIVEL:
+- ZIP CODE
+- CONDADO
+- ESTADO
+- NACIONAL
+
+EN CADA NIVEL MUESTRA **OBLIGATORIAMENTE**:
+
+A) 💵 PAGO CASH (SIN SEGURO)
+   - Mínimo
+   - Promedio
+   - Máximo
+   - Comentario de negociación
+
+B) 🏥 CON SEGURO
+   - Precio facturado
+   - Lo que normalmente cubre
+   - Copago + deducible típico
+
+C) ⚠️ SEGURO CON BAJA COBERTURA
+   - Lo que el seguro NO cubre
+   - Riesgo financiero real
+
+3️⃣ PARA CADA NIVEL AGREGA:
+📍 ZIP XXXXX
+🗺️ Google Maps:
+https://www.google.com/maps/search/?api=1&query=ZIP
+
+4️⃣ AGREGA UNA SECCIÓN:
+💡 ¿DÓNDE SE AHORRA MÁS DINERO Y POR QUÉ?
+
+5️⃣ USA TABLAS, LISTAS Y EMOJIS CLAROS.
+6️⃣ NO INVENTES CLÍNICAS.
+7️⃣ SÉ CLARO, DIRECTO, CON CIFRAS ÚTILES.
+
+CIERRA SIEMPRE CON:
+
+🛡️ BLINDAJE LEGAL
+Aura by May Roga LLC es una agencia independiente de información.
 No somos médicos, clínicas ni aseguradoras.
 No damos diagnósticos ni cotizaciones.
-Este es un ESTIMADO EDUCATIVO.
-El proveedor final define el precio.
+Este es un ESTIMADO EDUCATIVO basado en mercado y datos públicos.
+El precio final lo define el proveedor.
 """
 
-    motores = []
-    if client_gemini:
-        try:
-            modelos_gemini = client_gemini.models.list().data
-            if modelos_gemini:
-                motores.append(("gemini", modelos_gemini[0].name))
-        except: pass
-    motores.append(("openai", "gpt-4"))
-
-    for motor, modelo in motores:
-        try:
-            if motor == "gemini" and client_gemini:
-                response = client_gemini.models.generate_content(model=modelo, contents=prompt)
-                return {"resultado": response.text}
-            elif motor == "openai":
-                response = openai.chat.completions.create(
-                    model=modelo,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5,
-                )
-                return {"resultado": response.choices[0].message.content}
-        except:
-            continue
-
-    return {"resultado": "Estimado generado automáticamente sin datos exactos SQL."}
+    try:
+        r = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4
+        )
+        return {"resultado": r.choices[0].message.content}
+    except Exception as e:
+        return {"resultado": "No se pudo generar el estimado."}
 
 # ==============================
-# Crear sesión Stripe
+# Stripe
 # ==============================
 @app.post("/create-checkout-session")
-async def create_checkout(plan: str = Form(...)):
-    if plan.lower() == "donacion":
+async def checkout(plan: str = Form(...)):
+    if plan == "donacion":
         return {"url": LINK_DONACION}
     try:
-        mode = "subscription" if plan.lower() == "special" else "payment"
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
-            line_items=[{"price": PRICE_IDS[plan.lower()], "quantity": 1}],
-            mode=mode,
+            line_items=[{"price": PRICE_IDS[plan], "quantity": 1}],
+            mode="payment",
             success_url="https://aura-by.onrender.com/?success=true",
             cancel_url="https://aura-by.onrender.com/"
         )
@@ -248,12 +168,10 @@ async def create_checkout(plan: str = Form(...)):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ==============================
-# Login Admin / Acceso gratuito
+# Admin
 # ==============================
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    ADMIN_USER = os.getenv("ADMIN_USERNAME", "TU_USERNAME")
-    ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "TU_PASSWORD")
-    if user == ADMIN_USER and pw == ADMIN_PASS:
-        return {"status": "success", "access": "full"}
+    if user == os.getenv("ADMIN_USERNAME") and pw == os.getenv("ADMIN_PASSWORD"):
+        return {"status": "ok"}
     return JSONResponse(status_code=401, content={"status": "error"})
