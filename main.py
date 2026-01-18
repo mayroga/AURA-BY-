@@ -4,7 +4,6 @@ import stripe
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
 import openai
 from dotenv import load_dotenv
 
@@ -15,7 +14,20 @@ app = FastAPI()
 # Configuración Stripe & IA
 # ==============================
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-client_gemini = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Gemini seguro: si no hay key, no bloquea deploy
+client_gemini = None
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if gemini_api_key:
+    try:
+        from google import genai
+        client_gemini = genai.Client(api_key=gemini_api_key)
+    except Exception as e:
+        print(f"[WARNING] Gemini no inicializado: {e}")
+else:
+    print("[WARNING] GEMINI_API_KEY no encontrada, Gemini deshabilitado.")
+
+# OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Precios de acceso
@@ -48,7 +60,6 @@ def query_sql(termino, zip_user=None):
         cursor = conn.cursor()
         busqueda = f"%{termino.strip().upper()}%"
 
-        # Buscar local -> condado -> estado -> nacional
         cursor.execute("""
         SELECT cpt_code, description, state, zip_code, low_price, high_price
         FROM cost_estimates
@@ -62,17 +73,13 @@ def query_sql(termino, zip_user=None):
         if not results:
             return "DATO_NO_SQL"
 
-        # Separar resultados locales, condado, estado, nacional
         local, county, state, national = [], [], [], []
         for r in results:
             code, desc, state_r, zip_r, low, high = r
-            # Local
             if zip_user and zip_r == zip_user:
                 local.append(r)
-            # Condado (primer 3 dígitos ZIP)
             elif zip_user and zip_r.startswith(zip_user[:3]):
                 county.append(r)
-            # Estado
             elif zip_user and state_r == zip_user[:2]:
                 state.append(r)
             else:
@@ -82,7 +89,7 @@ def query_sql(termino, zip_user=None):
             "local": local[:3],
             "county": county[:3],
             "state": state[:3],
-            "national": national[:5]  # Top 5 más baratos nacionales
+            "national": national[:5]
         }
 
     except Exception as e:
@@ -130,20 +137,19 @@ OBJETIVO:
 """
 
     motores = []
-    # Gemini
-    try:
-        modelos_gemini = client_gemini.models.list().data
-        if modelos_gemini:
-            motores.append(("gemini", modelos_gemini[0].name))
-    except: pass
 
-    # OpenAI fallback
-    try: motores.append(("openai", "gpt-4"))
-    except: pass
+    if client_gemini:
+        try:
+            modelos_gemini = client_gemini.models.list().data
+            if modelos_gemini:
+                motores.append(("gemini", modelos_gemini[0].name))
+        except: pass
+
+    motores.append(("openai", "gpt-4"))
 
     for motor, modelo in motores:
         try:
-            if motor == "gemini":
+            if motor == "gemini" and client_gemini:
                 response = client_gemini.models.generate_content(model=modelo, contents=prompt)
                 return {"resultado": response.text}
             elif motor == "openai":
@@ -172,8 +178,7 @@ async def create_checkout(plan: str = Form(...)):
             line_items=[{"price": PRICE_IDS[plan.lower()], "quantity": 1}],
             mode=mode,
             success_url="https://aura-by.onrender.com/?success=true",
-cancel_url="https://aura-by.onrender.com/"
-
+            cancel_url="https://aura-by.onrender.com/"
         )
         return {"url": session.url}
     except Exception as e:
