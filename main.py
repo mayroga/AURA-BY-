@@ -1,28 +1,22 @@
 import os
 import sqlite3
 import stripe
-from fastapi import FastAPI, Form, BackgroundTasks
+from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from dotenv import load_dotenv
-import pandas as pd
-from datetime import datetime
 
 load_dotenv()
 app = FastAPI()
 
+# Configuración de Llaves
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Configuración de IA (Gemini como respaldo o principal)
-client_gemini = None
-gemini_api_key = os.getenv("GEMINI_API_KEY")
-if gemini_api_key:
-    try:
-        from google import genai
-        client_gemini = genai.Client(api_key=gemini_api_key)
-    except Exception: pass
+# Variables de Acceso Admin (Render)
+ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin_default")
+ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "pass_default")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -35,34 +29,34 @@ def query_aura_vault(termino, zip_user=None):
         cur = conn.cursor()
         busqueda = f"%{termino.strip().upper()}%"
         
-        # 1. TRES LOCALES (Mismo ZIP)
+        # 3 LOCALES (Mismo ZIP)
         locales = []
         if zip_user:
             cur.execute("SELECT description, state, zip_code, low_price FROM estimates WHERE (description LIKE ? OR code LIKE ?) AND zip_code = ? ORDER BY low_price ASC LIMIT 3", (busqueda, busqueda, zip_user))
             locales = cur.fetchall()
 
-        # 2. TRES ESTADALES/CONDADO (Mismo Estado, excluyendo los locales ya hallados)
-        estadales = []
+        # 3 REGIONALES (Mismo Estado/Condado)
+        regionales = []
         if zip_user:
-            state_code = zip_user[:2] # Asumiendo prefijo o lógica de estado
-            cur.execute("SELECT description, state, zip_code, low_price FROM estimates WHERE (description LIKE ? OR code LIKE ?) AND state = ? AND zip_code != ? ORDER BY low_price ASC LIMIT 3", (busqueda, busqueda, state_code, zip_user))
-            estadales = cur.fetchall()
+            state_prefix = zip_user[:2]
+            cur.execute("SELECT description, state, zip_code, low_price FROM estimates WHERE (description LIKE ? OR code LIKE ?) AND state LIKE ? AND zip_code != ? ORDER BY low_price ASC LIMIT 3", (busqueda, busqueda, f"{state_prefix}%", zip_user))
+            regionales = cur.fetchall()
 
-        # 3. CINCO NACIONALES (Los más baratos de todo el país)
+        # 5 NACIONALES (Más baratos de USA)
         cur.execute("SELECT description, state, zip_code, low_price FROM estimates WHERE (description LIKE ? OR code LIKE ?) ORDER BY low_price ASC LIMIT 5", (busqueda, busqueda))
         nacionales = cur.fetchall()
 
-        # 4. UN PREMIUM (El precio más alto registrado para ese servicio)
+        # 1 PREMIUM (Precio más alto)
         cur.execute("SELECT description, state, zip_code, high_price FROM estimates WHERE (description LIKE ? OR code LIKE ?) ORDER BY high_price DESC LIMIT 1", (busqueda, busqueda))
         premium = cur.fetchone()
 
         conn.close()
-        return {"locales": locales, "estadales": estadales, "nacionales": nacionales, "premium": premium}
-    except Exception as e:
+        return {"locales": locales, "regionales": regionales, "nacionales": nacionales, "premium": premium}
+    except:
         return None
 
 # ==============================
-# RUTAS
+# RUTAS DE ACCESO Y ESTIMADOS
 # ==============================
 
 @app.get("/", response_class=HTMLResponse)
@@ -70,37 +64,38 @@ async def read_index():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
 
+@app.post("/login-admin")
+async def login_admin(user: str = Form(...), pw: str = Form(...)):
+    # Esta es la parte que restaura tu acceso gratuito
+    if user == ADMIN_USER and pw == ADMIN_PASS:
+        return {"status": "success", "message": "Acceso gratuito concedido."}
+    return JSONResponse(status_code=401, content={"status": "error", "message": "Credenciales incorrectas."})
+
 @app.post("/estimado")
 async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
     datos = query_aura_vault(consulta, zip_user)
+    idiomas = {"es": "Español", "en": "English", "ht": "Haitian Creole"}
     
-    # Prompt optimizado para Aura (Asesor Profesional)
     prompt = f"""
-    Eres AURA, el sistema experto de May Roga LLC. 
-    Tu misión es asesorar al cliente sobre precios médicos/dentales en USA.
-    
-    ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-    1. Menciona que has analizado el mercado para: '{consulta}'.
-    2. SECCIÓN LOCAL: Presenta 3 opciones económicas cerca de {zip_user if zip_user else 'su zona'}.
-    3. SECCIÓN REGIONAL: Presenta 3 opciones a nivel de estado/condado.
-    4. SECCIÓN NACIONAL: Presenta las 5 opciones más baratas detectadas en todo USA.
-    5. SECCIÓN PREMIUM: Presenta 1 opción de alto costo (Premium/Concierge).
-    
-    DATOS OBTENIDOS: {datos}
-    IDIOMA: {lang}
+    Eres AURA de May Roga LLC. Asesor profesional de precios médicos/dentales.
+    REPORTE PARA: {consulta} en {zip_user if zip_user else 'USA'}.
+    IDIOMA: {idiomas.get(lang, 'Español')}
 
-    REGLAS:
-    - No uses la palabra 'inteligencia artificial' ni 'IA'.
-    - No digas 'gobierno'.
-    - Usa un tono profesional, interesante y experto.
-    - Incluye ventajas de buscar precios bajos.
-    - Finaliza con el BLINDAJE LEGAL de May Roga LLC.
-    - Al final, invita al cliente a 'ACLARAR DUDAS' si algo no quedó claro.
+    DATOS ENCONTRADOS (ESTRUCTURA 3-3-5-1):
+    - Locales: {datos['locales'] if datos else 'No hay datos exactos'}
+    - Regionales: {datos['regionales'] if datos else 'No hay datos'}
+    - Nacionales: {datos['nacionales'] if datos else 'No hay datos'}
+    - Premium: {datos['premium'] if datos else 'No hay datos'}
+
+    INSTRUCCIONES:
+    1. Presenta los 3 precios locales, los 3 regionales, los 5 nacionales más baratos y el premium de forma clara.
+    2. Resalta la consulta del usuario en negrita.
+    3. Usa un tono experto. No menciones "IA" ni "Gobierno".
+    4. Incluye ventajas/desventajas y el BLINDAJE LEGAL de May Roga LLC al final.
     """
 
-    # Lógica de generación (OpenAI / Gemini)
     response = openai.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7
     )
@@ -108,26 +103,23 @@ async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zi
 
 @app.post("/aclarar-duda")
 async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...), lang: str = Form("es")):
-    # Esta función cumple con el requisito de que el cliente paga por aclarar dudas
-    prompt = f"El cliente tiene una duda sobre el reporte anterior. Reporte: {contexto}. Pregunta: {pregunta}. Responde como Aura, asesor de May Roga LLC, de forma profesional y resolutiva."
+    # Los clientes que pagan tienen derecho a preguntar
+    prompt = f"Como Aura de May Roga LLC, resuelve esta duda del cliente basándote en su reporte anterior. Reporte: {contexto}. Duda: {pregunta}."
     response = openai.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.5
+        temperature=0.4
     )
     return {"resultado": response.choices[0].message.content}
 
 @app.post("/create-checkout-session")
 async def create_checkout(plan: str = Form(...)):
-    price_ids = {
-        "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
-        "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
-        "special": "price_1SnatfBOA5mT4t0PZouWzfpw"
-    }
+    # IDs de precios de tu Stripe
+    PRICE_IDS = {"rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq", "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE", "special": "price_1SnatfBOA5mT4t0PZouWzfpw"}
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
-            line_items=[{"price": price_ids[plan.lower()], "quantity": 1}],
+            line_items=[{"price": PRICE_IDS[plan.lower()], "quantity": 1}],
             mode="payment",
             success_url="https://aura-by.onrender.com/?success=true",
             cancel_url="https://aura-by.onrender.com/"
