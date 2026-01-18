@@ -7,3 +7,4 @@ google-genai
 openai
 httpx
 psycopg2-binary
+pandas
