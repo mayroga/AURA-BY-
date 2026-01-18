@@ -5,61 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AURA by May Roga LLC</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #000; color: #fff; margin: 0; text-align: center; }
-        .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; font-weight: 900; color: #00d4ff; }
-        .container { max-width: 950px; margin: auto; padding: 20px; border: 2px solid #00d4ff; border-radius: 30px; background: #050505; margin-top: 20px; }
-        .hero-title { font-size: 3.5rem; color: #00d4ff; margin: 0; }
-        .search-box { width: 80%; padding: 20px; border-radius: 15px; border: 2px solid #00d4ff; background: #000; color: #fff; font-size: 1.2rem; }
-        .btn-main { background: #00d4ff; color: #000; border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.2rem; margin: 10px; }
-        .res-box { text-align: left; padding: 30px; background: #0a0a0a; border: 1px dashed #00d4ff; margin-top: 20px; display: none; line-height: 1.6; border-radius: 20px; }
-        .doubt-box { margin-top: 20px; padding: 20px; border: 1px solid #ffff00; border-radius: 20px; display: none; }
-        .btn-alt { background: #ffff00; color: #000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        /* Estilos para impresión */
-        @media print {
-            body { background: white; color: black; }
-            .container { border: none; }
-            .btn-main, .marquee, .search-box, .btn-alt { display: none; }
-        }
+        body { font-family: 'Segoe UI', Arial; background: #000; color: #fff; margin: 0; text-align: center; }
+        .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; padding: 15px; color: #00d4ff; font-weight: bold; overflow: hidden; white-space: nowrap; }
+        .container { max-width: 900px; margin: 20px auto; padding: 25px; border: 3px solid #00d4ff; border-radius: 40px; background: #080808; }
+        .login-box { margin: 20px auto; padding: 20px; border: 1px solid #00d4ff; border-radius: 20px; max-width: 350px; background: #0a0a0a; }
+        input { padding: 15px; border-radius: 12px; border: 2px solid #00d4ff; background: #000; color: #fff; width: 85%; margin: 10px 0; }
+        .btn-pay { background: #00d4ff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 90%; transition: 0.3s; margin: 5px; }
+        .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; display: none; border-radius: 20px; line-height: 1.6; }
+        .doubt-section { margin-top: 20px; border: 1px solid #ffff00; padding: 20px; border-radius: 20px; display: none; }
     </style>
 </head>
 <body>
 
-<div class="marquee">AURA BY MAY ROGA LLC • TRANSPARENCIA EN PRECIOS MÉDICOS • CONSULTORÍA PROFESIONAL • DATOS DE MERCADO USA</div>
+<div class="marquee">AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS</div>
 
 <div class="container">
-    <h1 class="hero-title">AURA</h1>
-    <div style="color:#ffff00; font-weight: bold;">by May Roga LLC</div>
+    <h1 style="color: #00d4ff; font-size: 3.5rem; margin: 0;">AURA</h1>
+    <div style="color: #ffff00; font-weight: bold;">by May Roga LLC</div>
 
-    <div id="setup-lang" style="margin: 20px;">
-        <button class="btn-alt" onclick="setLang('es')">Español</button>
-        <button class="btn-alt" onclick="setLang('en')">English</button>
+    <div id="login-admin-section" class="login-box">
+        <input type="text" id="admin-user" placeholder="Usuario Admin">
+        <input type="password" id="admin-pass" placeholder="Contraseña Admin">
+        <button class="btn-pay" onclick="loginAdmin()">ACCEDER (ADMIN)</button>
     </div>
 
     <div id="paywall">
-        <h3>Seleccione su nivel de acceso para revelar precios</h3>
-        <button class="btn-main" onclick="pagar('rapido')">Acceso Rápido ($5.99)</button>
-        <button class="btn-main" onclick="pagar('standard')">Standard ($9.99)</button>
-        <button class="btn-main" onclick="pagar('special')">Premium ($19.99)</button>
+        <h3>Seleccione su Plan de Acceso</h3>
+        <button class="btn-pay" onclick="pagar('rapido')">Consulta Rápida ($5.99)</button>
+        <button class="btn-pay" onclick="pagar('standard')">Standard ($9.99)</button>
+        <button class="btn-pay" onclick="pagar('special')">Especial / Premium ($19.99)</button>
     </div>
 
     <div id="sistema-aura" style="display:none;">
-        <p id="geo-info" style="color:#ffff00;"></p>
-        <input type="text" id="q" class="search-box" placeholder="Ej: MRI lumbar, Limpieza Dental, CPT 99213...">
-        <br>
-        <button class="btn-main" onclick="getEstimate()">REVELAR COMPARATIVA 3-3-5-1</button>
+        <p id="geo-txt" style="color:#ffff00; font-size: 0.9rem;"></p>
+        <div style="margin: 20px 0;">
+            <button onclick="changeLang('es')" style="background:none; border:1px solid #fff; color:#fff; cursor:pointer;">ES</button>
+            <button onclick="changeLang('en')" style="background:none; border:1px solid #fff; color:#fff; cursor:pointer;">EN</button>
+        </div>
+        <input type="text" id="q" placeholder="¿Qué procedimiento busca? (Ej: MRI, D2750)">
+        <button class="btn-pay" style="font-size:1.5rem;" onclick="getEstimate()">REVELAR COMPARATIVA 3-3-5-1</button>
         
         <div id="res" class="res-box"></div>
 
-        <div id="actions" style="display:none; margin-top: 20px;">
-            <button class="btn-alt" onclick="window.print()">Generar PDF / Imprimir</button>
-            <button class="btn-alt" onclick="speakRes()">Escuchar</button>
+        <div id="export-bar" style="display:none; margin-top:20px;">
+            <button class="btn-pay" style="width:auto;" onclick="window.print()">Imprimir / PDF</button>
+            <button class="btn-pay" style="width:auto; background:#ffff00;" onclick="readOut()">Escuchar</button>
         </div>
 
-        <div id="doubt-section" class="doubt-box">
-            <h4 style="color:#ffff00;">¿Tiene dudas sobre este resultado?</h4>
-            <input type="text" id="doubt-q" style="width:70%; padding:10px; border-radius:10px;" placeholder="Pregunte a Aura algo más...">
-            <button class="btn-main" style="padding:10px;" onclick="askAura()">Aclarar Duda</button>
-            <div id="doubt-res" style="margin-top:10px; font-style: italic; color:#00d4ff;"></div>
+        <div id="doubt-section" class="doubt-section">
+            <h4 style="color:#ffff00;">Aclarar Dudas con Aura</h4>
+            <input type="text" id="doubt-q" placeholder="Escriba su duda aquí...">
+            <button class="btn-pay" onclick="askAura()">Enviar Pregunta</button>
+            <p id="doubt-res" style="color:#00d4ff; margin-top:10px;"></p>
         </div>
     </div>
 </div>
@@ -68,28 +65,46 @@
     let currentLang = 'es';
     let userZip = "";
 
-    // Detección de ubicación
-    navigator.geolocation.getCurrentPosition(async p => {
-        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${p.coords.latitude}&longitude=${p.coords.longitude}&localityLanguage=en`);
-        const d = await r.json();
-        userZip = d.postcode;
-        document.getElementById('geo-info').innerText = "Ubicación Detectada: " + userZip;
+    // Detección automática de ubicación
+    navigator.geolocation.getCurrentPosition(async pos => {
+        try {
+            const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=es`);
+            const d = await r.json();
+            userZip = d.postcode || "";
+            document.getElementById('geo-info').innerText = "Ubicación: " + userZip;
+        } catch(e) {}
     });
 
-    // Manejo de idioma
-    function setLang(l) { currentLang = l; alert("Idioma cambiado a: " + l); }
+    // Función para tu entrada de administrador
+    async function loginAdmin() {
+        const user = document.getElementById('admin-user').value;
+        const pw = document.getElementById('admin-pass').value;
+        const fd = new FormData();
+        fd.append("user", user);
+        fd.append("pw", pw);
 
-    // Simulación de éxito de pago (Para desarrollo, en producción viene de la URL)
+        const r = await fetch("/login-admin", { method: "POST", body: fd });
+        if(r.ok) {
+            document.getElementById('paywall').style.display = 'none';
+            document.getElementById('login-admin-section').style.display = 'none';
+            document.getElementById('sistema-aura').style.display = 'block';
+        } else {
+            alert("Usuario o Contraseña de Admin Incorrectos.");
+        }
+    }
+
+    // Si viene de pago exitoso de Stripe
     if(window.location.search.includes('success')) {
         document.getElementById('paywall').style.display = 'none';
+        document.getElementById('login-admin-section').style.display = 'none';
         document.getElementById('sistema-aura').style.display = 'block';
     }
 
     async function getEstimate() {
         const q = document.getElementById('q').value;
-        const resDiv = document.getElementById('res');
-        resDiv.style.display = 'block';
-        resDiv.innerHTML = "Aura consultando bases de datos y analizando mercado...";
+        const resBox = document.getElementById('res');
+        resBox.style.display = 'block';
+        resBox.innerHTML = "Aura está analizando el mercado para usted...";
 
         const fd = new FormData();
         fd.append("consulta", q);
@@ -98,31 +113,30 @@
 
         const r = await fetch("/estimado", { method: "POST", body: fd });
         const d = await r.json();
-        resDiv.innerHTML = d.resultado;
-        document.getElementById('actions').style.display = 'block';
+        resBox.innerHTML = d.resultado;
+        document.getElementById('export-bar').style.display = 'block';
         document.getElementById('doubt-section').style.display = 'block';
     }
 
     async function askAura() {
-        const doubt = document.getElementById('doubt-q').value;
-        const contexto = document.getElementById('res').innerText;
-        const resDoubt = document.getElementById('doubt-res');
-        resDoubt.innerText = "Aura procesando su consulta adicional...";
+        const q = document.getElementById('doubt-q').value;
+        const ctx = document.getElementById('res').innerText;
+        document.getElementById('doubt-res').innerText = "Aura está respondiendo...";
 
         const fd = new FormData();
-        fd.append("pregunta", doubt);
-        fd.append("contexto", contexto);
+        fd.append("pregunta", q);
+        fd.append("contexto", ctx);
         fd.append("lang", currentLang);
 
         const r = await fetch("/aclarar-duda", { method: "POST", body: fd });
         const d = await r.json();
-        resDoubt.innerHTML = "<strong>Respuesta:</strong> " + d.resultado;
+        document.getElementById('doubt-res').innerHTML = "<strong>Respuesta:</strong> " + d.resultado;
     }
 
-    function speakRes() {
-        const msg = new SpeechSynthesisUtterance(document.getElementById('res').innerText);
-        msg.lang = currentLang === 'es' ? 'es-US' : 'en-US';
-        window.speechSynthesis.speak(msg);
+    function readOut() { 
+        const u = new SpeechSynthesisUtterance(document.getElementById('res').innerText); 
+        u.lang = currentLang === 'es' ? 'es-US' : 'en-US';
+        window.speechSynthesis.speak(u); 
     }
 
     async function pagar(plan) {
