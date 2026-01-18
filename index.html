@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AURA by May Roga LLC</title>
+
 <style>
   body { font-family: 'Segoe UI', Arial; background: #000; color: #fff; margin: 0; text-align: center; }
   .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; }
@@ -16,10 +17,10 @@
 
   .plan-card { border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; margin: 10px; display: inline-block; width: 28%; vertical-align: top; background: #0a0a0a; }
   .btn-pay { background: #00d4ff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; transition: 0.3s; }
-
+ 
   input { padding: 18px; border-radius: 15px; border: 2px solid #00d4ff; background: #000; color: #fff; margin: 10px; font-size: 1.2rem; width: 100%; box-sizing: border-box; }
   .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap; display: none; }
-
+ 
   .res-ask { color: #00d4ff; font-weight: bold; text-decoration: underline; }
   .res-top { color: #ffff00; font-weight: bold; }
 
@@ -37,6 +38,7 @@
   .legal-box { margin-top: 30px; border-top: 2px dashed #00d4ff; padding-top: 20px; font-size: 0.9rem; color: #aaa; text-align: justify; }
 </style>
 </head>
+
 <body>
 
 <div class="marquee">
@@ -67,18 +69,9 @@
   </div>
 
   <div id="paywall">
-    <div class="plan-card">
-      <h4 id="plan-rapid">C. RÁPIDA</h4><p>$5.99</p>
-      <button class="btn-pay" id="btn-rapid" onclick="pagar('rapido')">PAGAR ACCESO</button>
-    </div>
-    <div class="plan-card">
-      <h4 id="plan-standard">STANDARD</h4><p>$9.99</p>
-      <button class="btn-pay" id="btn-standard" onclick="pagar('standard')">PAGAR ACCESO</button>
-    </div>
-    <div class="plan-card">
-      <h4 id="plan-special">ESPECIAL</h4><p>$19.99</p>
-      <button class="btn-pay" id="btn-special" onclick="pagar('special')">PAGAR ACCESO</button>
-    </div>
+    <div class="plan-card"><h4>C. RÁPIDA</h4><p>$5.99</p><button class="btn-pay" onclick="pagar('rapido')">PAGAR ACCESO</button></div>
+    <div class="plan-card"><h4>STANDARD</h4><p>$9.99</p><button class="btn-pay" onclick="pagar('standard')">PAGAR ACCESO</button></div>
+    <div class="plan-card"><h4>ESPECIAL</h4><p>$19.99</p><button class="btn-pay" onclick="pagar('special')">PAGAR ACCESO</button></div>
   </div>
 
   <div id="sistema-aura" style="display:none;">
@@ -88,22 +81,22 @@
       <input type="text" id="q" placeholder="Procedimiento, síntoma o código (ej: MRI, D2750)">
       <button class="clear-btn" onclick="document.getElementById('q').value=''">✖ BORRAR</button>
     </div>
-    <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem; margin-top:20px; width:85%;" id="btn-estimate">REVELAR ESTIMADO DE PRECIO</button>
+    <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem; margin-top:20px; width:85%;">REVELAR ESTIMADO DE PRECIO</button>
     <div id="res" class="res-box"></div>
     <div id="export-bar" style="display:none; margin-top:20px;">
-      <button class="btn-ex" style="background:#25d366;" onclick="shareWA()" id="btn-wa">WhatsApp 🛡️</button>
-      <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()" id="btn-read">🔊 Escuchar</button>
-      <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()" id="btn-pdf">🖨️ PDF / Print</button>
+      <button class="btn-ex" style="background:#25d366;" onclick="shareWA()">WhatsApp 🛡️</button>
+      <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">🔊 Escuchar</button>
+      <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()">🖨️ PDF / Print</button>
     </div>
 
-    <div class="legal-box" id="legal-text">
+    <div class="legal-box">
       ⚠️ BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. No damos diagnósticos ni cotizaciones. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y rangos históricos para precios dentales.
     </div>
   </div>
 
   <div class="donacion-box">
     <h2 style="color:#ffff00; margin-top:0;">🤝 FONDO DE SOLIDARIDAD Y EMPLEO</h2>
-    <button class="btn-donar" id="btn-donation" onclick="pagar('donacion')">REALIZAR DONACIÓN VOLUNTARIA</button>
+    <button class="btn-donar" onclick="pagar('donacion')">REALIZAR DONACIÓN VOLUNTARIA</button>
   </div>
 </div>
 
@@ -111,32 +104,105 @@
 let currentLang = 'es';
 let userZip = null;
 
-// Traducciones completas para todos los textos y botones
-const translations = {
-  es: { placeholder:"Procedimiento, síntoma o código (ej: MRI, D2750)", searchHero:"CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.\nIntroduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo.", marquee:"🛡️ AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •", freeAccess:"ACCEDER GRATIS", payRapid:"C. RÁPIDA", payStandard:"STANDARD", paySpecial:"ESPECIAL", donation:"REALIZAR DONACIÓN VOLUNTARIA", analyzing:"Aura analizando mercado...", connectionError:"Error de conexión.", legal:"⚠️ BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. No damos diagnósticos ni cotizaciones. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y rangos históricos para precios dentales."},
-  en: { placeholder:"Procedure, symptom or code (eg: MRI, D2750)", searchHero:"CHECK ESTIMATED MEDICAL AND DENTAL PRICES IN USA.\nEnter procedure, symptom, code or location. Get market range and fair price.", marquee:"🛡️ AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES FOR CONSUMERS • TOTAL TRANSPARENCY • NOT DOCTORS OR INSURANCE • MARKET INFO ONLY •", freeAccess:"FREE ACCESS", payRapid:"QUICK PLAN", payStandard:"STANDARD PLAN", paySpecial:"SPECIAL PLAN", donation:"MAKE VOLUNTARY DONATION", analyzing:"Aura analyzing market...", connectionError:"Connection error.", legal:"⚠️ LEGAL DISCLAIMER: This report is issued by Aura by May Roga LLC, independent information agency. We are not doctors, clinics, or insurers. This is an EDUCATIONAL ESTIMATE based on official CMS public data and historical ranges for dental prices."},
-  ht: { placeholder:"Pwosedi oswa sentòm (eg: MRI, D2750)", searchHero:"Tcheke pri medikal ak dantè estime Ozetazini.\nAntre pwosedi, sentòm, kòd oswa kote. Jwenn ranje mache ak pri jis.", marquee:"🛡️ AURA BY MAY ROGA LLC: ESTIME PRI MEDIKAL POU KONSOMATÈ • TRANSPARANS TOTAL • NO SE MEDIKOS OSWA ASIRANS • SÈLMAN ENFÒMASYON SOU MACHE •", freeAccess:"AKSE GRATIS", payRapid:"PLAN RAPID", payStandard:"PLAN STANDARD", paySpecial:"PLAN ESPESYAL", donation:"FÈ DON VOLONTER", analyzing:"Aura ap analize mache a...", connectionError:"Erè koneksyon.", legal:"⚠️ AVÈTISMAN LEGAL: Rapò sa a soti nan Aura by May Roga LLC, ajans enfòmasyon endepandan. Nou pa doktè, klinik, oswa asirans. Sa a se yon ESTIMASYON EDIKATIF ki baze sou done piblik ofisyèl CMS ak ranje istorik pou pri dantè."}
+function getGeo() {
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const { latitude, longitude } = pos.coords;
+      try {
+        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${currentLang}`);
+        const data = await r.json();
+        userZip = data.postcode || null;
+        document.getElementById('geo-txt').innerText = userZip ? `📍 Ubicación detectada: ZIP ${userZip}` : "📍 Ubicación: USA General";
+      } catch {
+        document.getElementById('geo-txt').innerText = "📍 Ubicación: USA General";
+      }
+    });
+  } else {
+    document.getElementById('geo-txt').innerText = "📍 Ubicación no disponible";
+  }
+}
+
+window.onload = () => {
+  getGeo();
+  if(new URLSearchParams(window.location.search).has('success')) {
+    document.getElementById('paywall').style.display='none';
+    document.getElementById('sistema-aura').style.display='block';
+  }
 };
 
 function changeLang(lang){
   currentLang = lang;
-  const t = translations[lang];
-  document.getElementById('q').placeholder = t.placeholder;
-  document.getElementById('search-hero').innerText = t.searchHero;
-  document.getElementById('marquee-text').innerText = t.marquee;
-  document.getElementById('login-btn').innerText = t.freeAccess;
-  document.getElementById('plan-rapid').innerText = t.payRapid;
-  document.getElementById('plan-standard').innerText = t.payStandard;
-  document.getElementById('plan-special').innerText = t.paySpecial;
-  document.getElementById('btn-rapid').innerText = t.payRapid;
-  document.getElementById('btn-standard').innerText = t.payStandard;
-  document.getElementById('btn-special').innerText = t.paySpecial;
-  document.getElementById('btn-donation').innerText = t.donation;
-  document.getElementById('legal-text').innerText = t.legal;
+  document.getElementById('q').placeholder = lang==='es' ? "Procedimiento o síntoma..." : lang==='en' ? "Procedure or symptom..." : "Pwosedi oswa sentòm...";
+  document.getElementById('search-hero').innerText = lang==='es' ? "CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.\nIntroduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo." : lang==='en' ? "CHECK ESTIMATED MEDICAL AND DENTAL PRICES IN USA.\nEnter procedure, symptom, code or location. Get market range and fair price." : "Tcheke pri medikal ak dantè estime Ozetazini.\nAntre pwosedi, sentòm, kòd oswa kote. Jwenn ranje mache ak pri jis.";
+  document.getElementById('marquee-text').innerText = lang==='es' ? "🛡️ AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •" : lang==='en' ? "🛡️ AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES FOR CONSUMERS • TOTAL TRANSPARENCY • NOT DOCTORS OR INSURANCE • MARKET INFO ONLY •" : "🛡️ AURA BY MAY ROGA LLC: ESTIME PRI MEDIKAL POU KONSOMATÈ • TRANSPARANS TOTAL • NO SE MEDIKOS OSWA ASIRANS • SÈLMAN ENFÒMASYON SOU MACHE •";
+  document.getElementById('login-btn').innerText = lang==='es'? "ACCEDER GRATIS": lang==='en'? "FREE ACCESS":"AKSE GRATIS";
 }
 
-// Aquí mantienes todas tus otras funciones: getGeo(), listen(), getEstimate(), pagar(), loginAdmin(), readOut(), shareWA(), exportPDF()
-</script>
+function listen(){
+  try{
+    const rec = new (window.SpeechRecognition||window.webkitSpeechRecognition)();
+    rec.lang = currentLang==='es'?'es-US':currentLang==='en'?'en-US':'ht-HT';
+    rec.onresult = e=>{document.getElementById('q').value = e.results[0][0].transcript;};
+    rec.start();
+  } catch {
+    alert(currentLang==='es'?"Reconocimiento de voz no soportado en este navegador.":currentLang==='en'?"Speech recognition not supported in this browser.":"Rekonesans vwa pa sipòte nan navigatè sa a.");
+  }
+}
 
+async function getEstimate() {
+  const q = document.getElementById('q').value.trim();
+  if(!q && !userZip) return;
+  const resDiv = document.getElementById('res');
+  resDiv.style.display='block';
+  resDiv.innerHTML=currentLang==='es'? "<h2 style='color:#ffff00;'>Aura analizando mercado...</h2>" : currentLang==='en'? "<h2 style='color:#ffff00;'>Aura analyzing market...</h2>":"<h2 style='color:#ffff00;'>Aura ap analize mache a...</h2>";
+ 
+  const fd = new FormData();
+  fd.append("consulta", q);
+  fd.append("lang", currentLang);
+  if(userZip) fd.append("zip_user", userZip);
+ 
+  try {
+    const r = await fetch("/estimado",{method:"POST", body:fd});
+    const d = await r.json();
+    resDiv.innerHTML = d.resultado.replace(/<consulta>(.*?)<\/consulta>/g, '<span class="res-ask">$1</span>');
+    document.getElementById('export-bar').style.display='block';
+  } catch {
+    resDiv.innerText = currentLang==='es'? "Error de conexión." : currentLang==='en'? "Connection error.":"Erè koneksyon.";
+  }
+}
+
+async function pagar(plan){
+  if(plan==='donacion'){ window.location.href="https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"; return; }
+  const fd = new FormData();
+  fd.append("plan", plan);
+  try {
+    const res = await fetch("/create-checkout-session",{method:"POST", body:fd});
+    const data = await res.json();
+    if(data.url) window.location.href = data.url;
+  } catch { alert(currentLang==='es'? "Error al conectar con Stripe.":currentLang==='en'? "Error connecting to Stripe.":"Erè konekte ak Stripe."); }
+}
+
+async function loginAdmin(){
+  const user = document.getElementById('admin-user').value.trim();
+  const pw = document.getElementById('admin-pass').value.trim();
+  if(!user || !pw) return alert(currentLang==='es'? "Ingresa usuario y contraseña.":currentLang==='en'? "Enter username and password":"Antre itilizatè ak modpas");
+  const fd = new FormData();
+  fd.append("user", user);
+  fd.append("pw", pw);
+  try {
+    const res = await fetch("/login-admin", {method:"POST", body:fd});
+    if(res.status===200){
+      document.getElementById('paywall').style.display='none';
+      document.getElementById('sistema-aura').style.display='block';
+      alert(currentLang==='es'? "Acceso gratuito concedido.":currentLang==='en'? "Free access granted.":"Aksè gratis akòde.");
+    } else { alert(currentLang==='es'? "Usuario o contraseña incorrectos.":currentLang==='en'? "Incorrect username or password":"Itilizatè oswa modpas enkòrèk."); }
+  } catch { alert(currentLang==='es'? "Error de conexión.":currentLang==='en'? "Connection error.":"Erè koneksyon."); }
+}
+
+function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); ut.lang = currentLang==='es'?'es-US':currentLang==='en'?'en-US':'ht-HT'; window.speechSynthesis.speak(ut); }
+function shareWA(){ window.open("https://wa.me/?text="+encodeURIComponent(document.getElementById('res').innerText)); }
+function exportPDF(){ const content = document.getElementById('res').innerText; const myWindow = window.open('', '', 'width=800,height=600'); myWindow.document.write('<pre style="font-family:Arial; white-space:pre-wrap;">'+content+'</pre>'); myWindow.document.close(); myWindow.print(); }
+
+</script>
 </body>
 </html>
