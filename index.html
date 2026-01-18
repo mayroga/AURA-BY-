@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -10,7 +10,7 @@
   .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; }
   .marquee-content { display: inline-block; animation: scroll 35s linear infinite; color: #00d4ff; font-weight: 900; font-size: 1.2rem; }
   @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  
+
   .container { max-width: 900px; margin: auto; padding: 25px; border: 3px solid #00d4ff; border-radius: 40px; background: #080808; margin-top: 10px; }
   .yellow { color: #ffff00; font-weight: bold; font-size: 1.5rem; }
   .search-hero { font-size: 1.3rem; color: #00d4ff; font-weight: bold; margin: 20px 0; border: 1px dashed #00d4ff; padding: 20px; border-radius: 20px; line-height: 1.5; }
@@ -23,7 +23,7 @@
   
   .res-ask { color: #00d4ff; font-weight: bold; text-decoration: underline; }
   .res-top { color: #ffff00; font-weight: bold; }
-  
+
   .donacion-box { border: 5px solid #ffff00; border-radius: 35px; padding: 30px; margin-top: 40px; }
   .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
 
@@ -35,6 +35,7 @@
   .login-box button { width: 85%; }
 
   .lang-box { margin-bottom: 20px; }
+  .legal-box { margin-top: 30px; border-top: 2px dashed #00d4ff; padding-top: 20px; font-size: 0.9rem; color: #aaa; text-align: justify; }
 </style>
 </head>
 
@@ -87,6 +88,10 @@
       <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">🔊 Escuchar</button>
       <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()">🖨️ PDF / Print</button>
     </div>
+
+    <div class="legal-box">
+      ⚠️ BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. No damos diagnósticos ni cotizaciones. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y rangos históricos para precios dentales.
+    </div>
   </div>
 
   <div class="donacion-box">
@@ -125,7 +130,6 @@ window.onload = () => {
   }
 };
 
-// Cambiar idioma
 function changeLang(lang){
   currentLang = lang;
   document.getElementById('q').placeholder = lang==='es' ? "Procedimiento o síntoma..." : lang==='en' ? "Procedure or symptom..." : "Pwosedi oswa sentòm...";
@@ -134,7 +138,6 @@ function changeLang(lang){
   document.getElementById('login-btn').innerText = lang==='es'? "ACCEDER GRATIS": lang==='en'? "FREE ACCESS":"AKSE GRATIS";
 }
 
-// Funciones de voz
 function listen(){
   try{
     const rec = new (window.SpeechRecognition||window.webkitSpeechRecognition)();
@@ -146,7 +149,6 @@ function listen(){
   }
 }
 
-// Función estimado
 async function getEstimate() {
   const q = document.getElementById('q').value.trim();
   if(!q && !userZip) return;
@@ -162,14 +164,13 @@ async function getEstimate() {
   try {
     const r = await fetch("/estimado",{method:"POST", body:fd});
     const d = await r.json();
-    resDiv.innerHTML = d.resultado.replace(/<consulta>(.*?)<\/consulta>/g, '<span class="res-ask">$1</span>'); // destaca la pregunta del usuario
+    resDiv.innerHTML = d.resultado.replace(/<consulta>(.*?)<\/consulta>/g, '<span class="res-ask">$1</span>');
     document.getElementById('export-bar').style.display='block';
   } catch {
     resDiv.innerText = currentLang==='es'? "Error de conexión." : currentLang==='en'? "Connection error.":"Erè koneksyon.";
   }
 }
 
-// PAGO STRIPE
 async function pagar(plan){
   if(plan==='donacion'){ window.location.href="https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"; return; }
   const fd = new FormData();
@@ -181,7 +182,6 @@ async function pagar(plan){
   } catch { alert(currentLang==='es'? "Error al conectar con Stripe.":currentLang==='en'? "Error connecting to Stripe.":"Erè konekte ak Stripe."); }
 }
 
-// LOGIN ADMIN / GRATIS
 async function loginAdmin(){
   const user = document.getElementById('admin-user').value.trim();
   const pw = document.getElementById('admin-pass').value.trim();
@@ -199,7 +199,6 @@ async function loginAdmin(){
   } catch { alert(currentLang==='es'? "Error de conexión.":currentLang==='en'? "Connection error.":"Erè koneksyon."); }
 }
 
-// Funciones lectura, PDF, WhatsApp
 function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); ut.lang = currentLang==='es'?'es-US':currentLang==='en'?'en-US':'ht-HT'; window.speechSynthesis.speak(ut); }
 function shareWA(){ window.open("https://wa.me/?text="+encodeURIComponent(document.getElementById('res').innerText)); }
 function exportPDF(){ const content = document.getElementById('res').innerText; const myWindow = window.open('', '', 'width=800,height=600'); myWindow.document.write('<pre style="font-family:Arial; white-space:pre-wrap;">'+content+'</pre>'); myWindow.document.close(); myWindow.print(); }
