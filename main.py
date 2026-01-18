@@ -57,19 +57,24 @@ app.add_middleware(
 def ingest_cms_data():
     conn = sqlite3.connect("aura_brain.db")
 
+    # ==============================
+    # URLs reales y funcionales de CMS
+    # ==============================
     CMS_DATASETS = {
-        "physician_fee": "https://data.cms.gov/resource/7b3x-3k6u.csv?$limit=50000",
-        "outpatient": "https://data.cms.gov/resource/9wzi-peqs.csv?$limit=50000"
+        "physician_fee": "https://data.cms.gov/data-api/v1/dataset/8889d81e-2ee7-448f-8713-f071038289b5/data",
+        "outpatient": "https://data.cms.gov/data-api/v1/dataset/ccbc9a44-40d4-46b4-a709-5caa59212e50/data"
     }
 
     for name, url in CMS_DATASETS.items():
         try:
             print(f"Descargando dataset {name}...")
-            df = pd.read_csv(url)
+            resp = requests.get(url)
+            resp.raise_for_status()
+            df = pd.DataFrame(resp.json())
 
-            # NORMALIZACIÓN
+            # NORMALIZACIÓN: mantener solo columnas importantes
             df.columns = [c.lower() for c in df.columns]
-            keep = [c for c in df.columns if c in ["hcpcs_code","cpt_code","payment_amount","state","locality"]]
+            keep = [c for c in df.columns if c in ["hcpcs_code","cpt_code","payment_amount","provider_state","locality"]]
             df = df[keep]
             df["source"] = name
             df["ingested_at"] = datetime.utcnow()
@@ -89,7 +94,7 @@ def get_estimated_price(code, state):
     cur.execute("""
         SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount)
         FROM government_prices
-        WHERE (hcpcs_code=? OR cpt_code=?) AND state=?
+        WHERE (hcpcs_code=? OR cpt_code=?) AND provider_state=?
     """, (code, code, state))
 
     row = cur.fetchone()
@@ -164,7 +169,7 @@ async def read_index():
 # ==============================
 @app.post("/estimado")
 async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    # Ingesta CMS automática (puede ser un cron job mensual en producción)
+    # Ingesta CMS automática (cron mensual recomendado)
     ingest_cms_data()
 
     datos_sql = query_sql(consulta, zip_user)
