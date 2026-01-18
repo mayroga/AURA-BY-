@@ -113,6 +113,7 @@
 let currentLang = 'es';
 let userZip = null;
 
+// Traducciones
 const translations = {
   es: {
     placeholder: "Procedimiento, síntoma o código (ej: MRI, D2750)",
@@ -155,6 +156,7 @@ const translations = {
   }
 };
 
+// Cambiar idioma
 function changeLang(lang){
   currentLang = lang;
   const t = translations[lang];
@@ -169,7 +171,36 @@ function changeLang(lang){
   document.getElementById('legal-text').innerText = t.legal;
 }
 
-// El resto de funciones (getGeo, listen, getEstimate, pagar, loginAdmin, readOut, shareWA, exportPDF) se mantienen como en tu código actual
+// Funciones de geolocalización, voz, estimado, pago y admin se mantienen exactamente igual que tu original
+async function getGeo() {
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const { latitude, longitude } = pos.coords;
+      try {
+        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${currentLang}`);
+        const data = await r.json();
+        userZip = data.postcode || null;
+        document.getElementById('geo-txt').innerText = userZip ? `📍 Ubicación detectada: ZIP ${userZip}` : "📍 Ubicación: USA General";
+      } catch {
+        document.getElementById('geo-txt').innerText = "📍 Ubicación: USA General";
+      }
+    });
+  } else {
+    document.getElementById('geo-txt').innerText = "📍 Ubicación no disponible";
+  }
+}
+
+window.onload = () => {
+  getGeo();
+  changeLang(currentLang); // Inicializa todos los botones y textos en el idioma por defecto
+  if(new URLSearchParams(window.location.search).has('success')) {
+    document.getElementById('paywall').style.display='none';
+    document.getElementById('sistema-aura').style.display='block';
+  }
+};
+
+// Mantén aquí tus funciones originales: listen(), getEstimate(), pagar(), loginAdmin(), readOut(), shareWA(), exportPDF()
 </script>
+
 </body>
 </html>
