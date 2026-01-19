@@ -26,32 +26,20 @@
 </style>
 </head>
 <body>
-  
-<div style="margin:15px;">
-  <button class="btn-ex" onclick="changeLang('es')">ES</button>
-  <button class="btn-ex" onclick="changeLang('en')">EN</button>
-</div>
-
-<script>
-let currentLang = 'es';
-let userZip = "";
-
-function changeLang(lang){
-    currentLang = lang;
-    document.getElementById('q').placeholder = (lang==='es') ? "Ej: MRI, D2750, Limpieza Dental" : "Ex: MRI, D2750, Dental Cleaning";
-    document.getElementById('geo-txt').innerText = (lang==='es') ? "Detectando ubicación..." : "Detecting location...";
-}
-</script>
 
 <div class="marquee">
-  <div class="marquee-content">AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •</div>
+  <div class="marquee-content">AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • SOLO INFORMACIÓN DE MERCADO •</div>
 </div>
 
 <div class="container">
   <h1 style="color: #00d4ff; font-size: 4rem; margin: 0;">AURA</h1>
   <div class="yellow">by May Roga LLC</div>
 
-  <div class="search-hero">CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.<br>Obtén el rango 3-3-5-1 para máximo ahorro.</div>
+  <!-- Selección idioma -->
+  <div style="margin:15px;">
+    <button class="btn-ex" onclick="changeLang('es')">ES</button>
+    <button class="btn-ex" onclick="changeLang('en')">EN</button>
+  </div>
 
   <div class="login-box">
     <input type="text" id="admin-user" placeholder="Usuario">
@@ -70,6 +58,13 @@ function changeLang(lang){
     <input type="text" id="q" placeholder="Ej: MRI, D2750, Limpieza Dental">
     <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem;">REVELAR COMPARATIVA AURA</button>
     <div id="res" class="res-box"></div>
+    <div style="margin-top:15px;">
+        <input type="text" id="report-code" placeholder="Código procedimiento">
+        <input type="text" id="report-zip" placeholder="ZIP">
+        <input type="text" id="report-state" placeholder="Estado">
+        <input type="number" id="report-price" placeholder="Precio reportado">
+        <button class="btn-ex" onclick="reportPrice()">Reportar Precio</button>
+    </div>
     <div id="export-bar" style="display:none; margin-top:20px;">
         <button class="btn-ex" style="background:#25d366;" onclick="window.print()">WhatsApp / Print</button>
         <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">Escuchar</button>
@@ -85,6 +80,12 @@ function changeLang(lang){
 <script>
 let currentLang = 'es';
 let userZip = "";
+
+function changeLang(lang){
+    currentLang = lang;
+    document.getElementById('q').placeholder = (lang==='es') ? "Ej: MRI, D2750, Limpieza Dental" : "Ex: MRI, D2750, Dental Cleaning";
+    document.getElementById('geo-txt').innerText = (lang==='es') ? "Detectando ubicación..." : "Detecting location...";
+}
 
 async function loginAdmin() {
   const fd = new FormData();
@@ -122,7 +123,21 @@ async function getEstimate() {
   document.getElementById('export-bar').style.display='block';
 }
 
-function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); window.speechSynthesis.speak(ut); }
+async function reportPrice(){
+    const fd = new FormData();
+    fd.append("code", document.getElementById('report-code').value);
+    fd.append("zip_user", document.getElementById('report-zip').value);
+    fd.append("state", document.getElementById('report-state').value);
+    fd.append("precio", document.getElementById('report-price').value);
+    const r = await fetch("/reportar-precio", {method:"POST", body:fd});
+    const d = await r.json();
+    alert(d.msg);
+}
+
+function readOut(){ 
+    const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); 
+    window.speechSynthesis.speak(ut); 
+}
 </script>
 </body>
 </html>
