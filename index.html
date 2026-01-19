@@ -23,6 +23,7 @@
   .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
   .btn-ex { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; color: white; }
   .login-box { margin: 20px auto; padding: 20px; border: 2px solid #00d4ff; border-radius: 25px; max-width: 400px; background: #0a0a0a; }
+  #map { width: 100%; height: 300px; margin-top: 25px; border-radius: 20px; }
 </style>
 </head>
 <body>
@@ -41,23 +42,28 @@
     <button class="btn-ex" onclick="changeLang('en')">EN</button>
   </div>
 
+  <!-- Login Admin -->
   <div class="login-box">
     <input type="text" id="admin-user" placeholder="Usuario">
     <input type="password" id="admin-pass" placeholder="Contraseña">
     <button class="btn-pay" onclick="loginAdmin()">ACCEDER</button>
   </div>
 
+  <!-- Planes Stripe -->
   <div id="paywall">
     <div class="plan-card"><h4>C. RÁPIDA</h4><p>$5.99</p><button class="btn-pay" onclick="pagar('rapido')">PAGAR</button></div>
     <div class="plan-card"><h4>STANDARD</h4><p>$9.99</p><button class="btn-pay" onclick="pagar('standard')">PAGAR</button></div>
     <div class="plan-card"><h4>ESPECIAL</h4><p>$19.99</p><button class="btn-pay" onclick="pagar('special')">PAGAR</button></div>
   </div>
 
+  <!-- Sistema AURA -->
   <div id="sistema-aura" style="display:none;">
     <div id="geo-txt" class="yellow">Detectando ubicación...</div>
     <input type="text" id="q" placeholder="Ej: MRI, D2750, Limpieza Dental">
     <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem;">REVELAR COMPARATIVA AURA</button>
     <div id="res" class="res-box"></div>
+
+    <!-- Reportar precio -->
     <div style="margin-top:15px;">
         <input type="text" id="report-code" placeholder="Código procedimiento">
         <input type="text" id="report-zip" placeholder="ZIP">
@@ -65,12 +71,19 @@
         <input type="number" id="report-price" placeholder="Precio reportado">
         <button class="btn-ex" onclick="reportPrice()">Reportar Precio</button>
     </div>
+
+    <!-- Export / Print / WhatsApp -->
     <div id="export-bar" style="display:none; margin-top:20px;">
-        <button class="btn-ex" style="background:#25d366;" onclick="window.print()">WhatsApp / Print</button>
-        <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">Escuchar</button>
+        <button class="btn-ex" style="background:#25d366;" onclick="shareWhatsApp()">WhatsApp</button>
+        <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="window.print()">Print</button>
+        <button class="btn-ex" onclick="readOut()">Escuchar</button>
     </div>
+
+    <!-- Mapa ubicación -->
+    <div id="map"></div>
   </div>
 
+  <!-- Donación -->
   <div class="donacion-box">
     <h2 style="color:#ffff00;">FONDO DE SOLIDARIDAD</h2>
     <button class="btn-donar" onclick="pagar('donacion')">DONACIÓN VOLUNTARIA</button>
@@ -78,6 +91,7 @@
 </div>
 
 <script>
+// Idioma dinámico
 let currentLang = 'es';
 let userZip = "";
 
@@ -87,18 +101,21 @@ function changeLang(lang){
     document.getElementById('geo-txt').innerText = (lang==='es') ? "Detectando ubicación..." : "Detecting location...";
 }
 
+// Login Admin
 async function loginAdmin() {
   const fd = new FormData();
   fd.append("user", document.getElementById('admin-user').value);
   fd.append("pw", document.getElementById('admin-pass').value);
   const r = await fetch("/login-admin", {method:"POST", body:fd});
-  if(r.ok) {
+  if(r.ok){
     document.getElementById('paywall').style.display='none';
     document.getElementById('sistema-aura').style.display='block';
+    initMap();
   } else { alert("Error de acceso."); }
 }
 
-async function pagar(plan) {
+// Stripe Checkout
+async function pagar(plan){
   const fd = new FormData();
   fd.append("plan", plan);
   const r = await fetch("/create-checkout-session", {method:"POST", body:fd});
@@ -106,6 +123,7 @@ async function pagar(plan) {
   if(data.url) window.location.href = data.url;
 }
 
+// Obtener estimado
 async function getEstimate() {
   const q = document.getElementById('q').value;
   const resDiv = document.getElementById('res');
@@ -123,6 +141,7 @@ async function getEstimate() {
   document.getElementById('export-bar').style.display='block';
 }
 
+// Reportar precio usuario
 async function reportPrice(){
     const fd = new FormData();
     fd.append("code", document.getElementById('report-code').value);
@@ -134,10 +153,25 @@ async function reportPrice(){
     alert(d.msg);
 }
 
+// Leer en voz alta
 function readOut(){ 
     const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); 
     window.speechSynthesis.speak(ut); 
 }
+
+// WhatsApp compartir
+function shareWhatsApp(){
+    const texto = encodeURIComponent(document.getElementById('res').innerText);
+    const url = `https://wa.me/?text=${texto}`;
+    window.open(url,'_blank');
+}
+
+// Mapa simple (solo display)
+function initMap(){
+    const mapDiv = document.getElementById('map');
+    mapDiv.innerHTML = `<iframe width="100%" height="300" frameborder="0" style="border:0" src="https://www.google.com/maps/embed/v1/place?key=YOUR_GOOGLE_MAPS_API_KEY&q=Miami,FL" allowfullscreen></iframe>`;
+}
 </script>
+
 </body>
 </html>
