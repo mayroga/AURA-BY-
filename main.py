@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import stripe
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
+# Configuración de Claves
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -17,62 +18,92 @@ PRICE_IDS = {
     "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
     "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
     "special": "price_1SnatfBOA5mT4t0PZouWzfpw",
-    "donacion": "price_1SnatfBOA5mT4t0PZouWzfpw" # O tu ID de donación real
+    "donacion": "price_1SnatfBOA5mT4t0PZouWzfpw" # O tu ID de donación
 }
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 def query_sql_3351(termino, zip_user=None):
+    """Lógica para extraer datos según la regla 3-3-5-1"""
     try:
         conn = sqlite3.connect('cost_estimates.db')
         cur = conn.cursor()
         b = f"%{termino.upper()}%"
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? AND zip_code = ? LIMIT 3", (b, zip_user))
+        
+        # 3 LOCALES (ZIP)
+        cur.execute("SELECT provider, city, low_price, high_price FROM cost_estimates WHERE description LIKE ? AND zip_code = ? LIMIT 3", (b, zip_user))
         locales = cur.fetchall()
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY low_price ASC LIMIT 5", (b,))
+        
+        # 5 NACIONALES (Más Bajos)
+        cur.execute("SELECT provider, state, low_price FROM cost_estimates WHERE description LIKE ? ORDER BY low_price ASC LIMIT 5", (b,))
         nacionales = cur.fetchall()
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY high_price DESC LIMIT 1", (b,))
+        
+        # 1 PREMIUM
+        cur.execute("SELECT provider, high_price FROM cost_estimates WHERE description LIKE ? ORDER BY high_price DESC LIMIT 1", (b,))
         premium = cur.fetchone()
+        
         conn.close()
         return {"locales": locales, "nacionales": nacionales, "premium": premium}
-    except: return None
+    except:
+        return None
 
-@app.get("/", response_class=HTMLResponse)
-async def read_index():
-    # Render necesita el path absoluto o estar en la misma carpeta
-    path = os.path.join(os.path.dirname(__file__), "index.html")
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+@app.post("/create-checkout-session")
+async def create_checkout(plan: str = Form(...)):
+    try:
+        price_id = PRICE_IDS.get(plan)
+        if not price_id: raise HTTPException(status_code=400)
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{'price': price_id, 'quantity': 1}],
+            mode='payment',
+            success_url="https://tu-dominio.com/?success=true",
+            cancel_url="https://tu-dominio.com/?cancel=true",
+        )
+        return {"id": session.id}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/estimado")
-async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    datos = query_sql_3351(consulta, zip_user)
-    # PROMPT REFORZADO PARA IDIOMA
+async def obtener_estimado(consulta: str = Form(...), lang: str = Form("en"), zip_user: str = Form(None)):
+    datos_sql = query_sql_3351(consulta, zip_user)
+    
+    # PROMPT DE EXPERTO - SIN PALABRAS PROHIBIDAS
     prompt = f"""
-    YOU ARE AURA, EXPERT FROM MAY ROGA LLC. 
-    RESPONSE LANGUAGE: Use ONLY {lang}. (es=Spanish, en=English, ht=Haitian Creole).
+    YOU ARE AURA, THE EXPERT ADVISOR FROM MAY ROGA LLC.
+    YOUR CLIENT PAID FOR A PREMIUM MARKET REPORT.
     
-    PROCEDURE: {consulta} | ZIP: {zip_user}
-    DATA: {datos}
-    
-    ESTRUCTURA 3-3-5-1 (OBLIGATORIA EN TABLAS HTML):
-    1. Header con nombre de procedimiento.
-    2. 3 LOCALES (Cerca de {zip_user}).
-    3. 5 NACIONALES (Más económicas de USA).
-    4. 1 PREMIUM (Más costosa).
-    
-    REGLAS: No digas 'IA', 'Gobierno'. Sé profesional y directo.
+    TASK: Provide a comparative medical/dental price report for: {consulta} in ZIP {zip_user}.
+    LANGUAGE: Strictly respond in {lang}. 
+    (If 'en' use English, if 'es' use Spanish, if 'ht' use Haitian Creole).
+
+    MANDATORY STRUCTURE (Use HTML):
+    1. HEADER: Procedure name in Large Blue.
+    2. THE 3-3-5-1 RULE:
+       - 3 LOCAL OPTIONS (Cerca de {zip_user}).
+       - 3 STATE/COUNTY OPTIONS.
+       - 5 NATIONAL LOWEST PRICE OPTIONS (The 'Smart Savings' picks).
+       - 1 PREMIUM OPTION (Luxury/High-end).
+    3. PRICE COMPARISON: Show Cash Price vs. Estimated Insurance Rate for each.
+    4. SAVINGS ADVICE: Propose why choosing a national low-cost option is a smart financial move.
+
+    CRITICAL CONSTRAINTS:
+    - DO NOT mention 'IA', 'Artificial Intelligence', or 'Government'.
+    - DO NOT use paragraphs. Use Tables, Bullet points, and bold headers.
+    - Be professional, advisory, and authoritative in market data.
+    - Reference Data: {datos_sql} (If null, use your CMS market knowledge to estimate Fair Prices).
     """
+
     response = openai.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+        temperature=0.2
     )
     return {"resultado": response.choices[0].message.content}
 
 @app.post("/aclarar-duda")
-async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...), lang: str = Form("es")):
-    prompt = f"Responde esta duda del cliente en idioma {lang}: {pregunta}. Contexto: {contexto}. Sé breve."
+async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...), lang: str = Form("en")):
+    prompt = f"The client has a doubt about this Aura report: {contexto}. Question: {pregunta}. Answer in {lang} as the Aura Expert."
     response = openai.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}]
@@ -81,19 +112,11 @@ async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...), lan
 
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    # Credenciales solicitadas
-    if user == "USERB=NAME" and pw == "CLAVE":
+    # Acceso Gratuito con tus credenciales
+    if user == "NAME" and pw == "CLAVE":
         return {"status": "ok"}
     return JSONResponse(status_code=401, content={"error": "Invalid"})
 
-@app.post("/create-checkout-session")
-async def create_checkout(plan: str = Form(...)):
-    price_id = PRICE_IDS.get(plan)
-    session = stripe.checkout.Session.create(
-        payment_method_types=['card'],
-        line_items=[{'price': price_id, 'quantity': 1}],
-        mode='payment',
-        success_url="https://aura-by.onrender.com/?success=true",
-        cancel_url="https://aura-by.onrender.com/?cancel=true",
-    )
-    return {"id": session.id}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
