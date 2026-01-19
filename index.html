@@ -26,6 +26,22 @@
 </style>
 </head>
 <body>
+  
+<div style="margin:15px;">
+  <button class="btn-ex" onclick="changeLang('es')">ES</button>
+  <button class="btn-ex" onclick="changeLang('en')">EN</button>
+</div>
+
+<script>
+let currentLang = 'es';
+let userZip = "";
+
+function changeLang(lang){
+    currentLang = lang;
+    document.getElementById('q').placeholder = (lang==='es') ? "Ej: MRI, D2750, Limpieza Dental" : "Ex: MRI, D2750, Dental Cleaning";
+    document.getElementById('geo-txt').innerText = (lang==='es') ? "Detectando ubicación..." : "Detecting location...";
+}
+</script>
 
 <div class="marquee">
   <div class="marquee-content">AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •</div>
