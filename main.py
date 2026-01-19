@@ -13,6 +13,14 @@ app = FastAPI()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# IDs de Stripe (Price IDs reales)
+PRICE_IDS = {
+    "rapido": "price_1QisFhL8uXJ8YwO6pLp", # EJEMPLO - Reemplaza con los tuyos
+    "standard": "price_1QisFhL8uXJ8YwO6pLq",
+    "special": "price_1QisFhL8uXJ8YwO6pLr",
+    "donacion": "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
+}
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 def query_aura_brain(termino, zip_user):
@@ -21,48 +29,38 @@ def query_aura_brain(termino, zip_user):
         cur = conn.cursor()
         b = f"%{termino.upper()}%"
         
-        # 3 LOCALES (ZIP)
+        # Lógica 3-3-3-5-1
         cur.execute("SELECT description, low_price, state, zip_code FROM prices WHERE description LIKE ? AND zip_code = ? LIMIT 3", (b, zip_user))
         locales = cur.fetchall()
         
-        # 3 CONDADO (ZIP Prefix)
         cur.execute("SELECT description, low_price, state, zip_code FROM prices WHERE description LIKE ? AND zip_code LIKE ? LIMIT 3", (b, f"{zip_user[:3]}%"))
         condado = cur.fetchall()
-        
-        # 5 NACIONALES (MÁS BAJOS DE USA)
+
         cur.execute("SELECT description, low_price, state, zip_code FROM prices WHERE description LIKE ? ORDER BY low_price ASC LIMIT 5", (b,))
         nacionales = cur.fetchall()
-
-        # 1 PREMIUM
-        cur.execute("SELECT description, high_price, state, zip_code FROM prices WHERE description LIKE ? ORDER BY high_price DESC LIMIT 1", (b,))
-        premium = cur.fetchone()
         
         conn.close()
-        return {"zip": locales, "condado": condado, "nacionales": nacionales, "premium": premium}
+        return {"locales": locales, "condado": condado, "nacionales": nacionales}
     except: return None
 
 @app.post("/estimado")
-async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form("")):
-    datos = query_aura_brain(consulta, zip_user)
+async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
+    datos_sql = query_aura_brain(consulta, zip_user)
     
+    # PROMPT DE AUTORIDAD MÁXIMA
     prompt = f"""
-    ERES AURA, EL CEREBRO DE MAY ROGA LLC. EXPERTO PROFESIONAL.
-    IDIOMA DE RESPUESTA: {lang}.
+    ERES AURA BY MAY ROGA LLC. EXPERTO AGENTE DE MEDICARE, MEDICAID Y PRECIOS DE SALUD EN USA.
+    TU OBJETIVO: Dar transparencia absoluta sobre el costo estimado.
     
-    ESTRUCTURA OBLIGATORIA (Usa tablas HTML):
-    1. 3 PRECIOS MÁS BAJOS EN ZIP {zip_user}.
-    2. 3 PRECIOS EN EL CONDADO.
-    3. 5 PRECIOS MÁS BAJOS EN TODO USA (Enfócate en el ahorro).
-    4. 1 OPCIÓN PREMIUM (Referencia de alto costo).
-    
-    DATOS REALES: {datos}
-    
-    REGLAS:
-    - No uses "IA" ni "Gobierno". 
-    - Sé profesional e interesante.
-    - Si no hay datos, da un rango estimado basado en mercado real de USA.
-    - Explica por qué conviene viajar a otro estado si el ahorro es grande.
-    - Termina con BLINDAJE LEGAL de May Roga LLC.
+    DATOS SQL: {datos_sql}
+    CONSULTA: {consulta} | ZIP: {zip_user} | IDIOMA: {lang}
+
+    MANDATO CRÍTICO:
+    1. Si los datos SQL están vacíos o son inconsistentes con la realidad legal (Medicare Fee Schedule), TOMA EL MANDO. Usa tu conocimiento de experto en FAIR Health, United Health Care y CMS para dar el estimado real.
+    2. ESTRUCTURA 3-3-3-5-1: 3 locales, 3 condado, 3 estado, 5 nacionales (ahorro máximo) y 1 premium.
+    3. Muestra el precio CASH vs Precio Estimado con Seguro.
+    4. TONO: Profesional, Autoridad, Agente del Gobierno (en función). No digas 'IA'.
+    5. BLINDAJE LEGAL: Inclúyelo al final de la respuesta.
     """
 
     response = openai.chat.completions.create(
@@ -72,22 +70,24 @@ async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zi
     )
     return {"resultado": response.choices[0].message.content}
 
-@app.post("/aclarar-duda")
-async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...)):
-    prompt = f"Como Aura de May Roga LLC, responde de forma breve y experta a esta duda del cliente sobre su reporte: {pregunta}. Contexto: {contexto}"
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+@app.post("/create-checkout-session")
+async def create_checkout(plan: str = Form(...)):
+    if plan == "donacion": return {"url": PRICE_IDS["donacion"]}
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{"price": PRICE_IDS[plan], "quantity": 1}],
+        mode="payment",
+        success_url="https://tu-url.com/?success=true",
+        cancel_url="https://tu-url.com/"
     )
-    return {"resultado": response.choices[0].message.content}
+    return {"url": session.url}
 
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
     if user == os.getenv("ADMIN_USERNAME") and pw == os.getenv("ADMIN_PASSWORD"):
         return {"status": "ok"}
-    return JSONResponse(status_code=401, content={"error": "Invalid"})
+    return JSONResponse(status_code=401)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
+    with open("index.html", "r", encoding="utf-8") as f: return f.read()
