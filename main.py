@@ -24,27 +24,35 @@ LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- Función de consulta SQL ---
+# --- Función de consulta SQL con precios de usuarios ---
 def query_sql_3351(termino, zip_user=None):
     try:
         conn = sqlite3.connect('cost_estimates.db')
         cur = conn.cursor()
         b = f"%{termino.upper()}%"
         
+        # Precios oficiales
         cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? AND zip_code = ? LIMIT 3", (b, zip_user))
         locales = cur.fetchall()
-        
         cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? AND state = ? LIMIT 3", (b, zip_user[:2] if zip_user else ""))
         regionales = cur.fetchall()
-        
         cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY low_price ASC LIMIT 5", (b,))
         nacionales = cur.fetchall()
-        
         cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY high_price DESC LIMIT 1", (b,))
         premium = cur.fetchone()
+
+        # Precios reportados por usuarios
+        cur.execute("SELECT * FROM user_prices WHERE code LIKE ? AND zip_code = ?", (f"%{termino.upper()}%", zip_user))
+        user_reports = cur.fetchall()
         
         conn.close()
-        return {"locales": locales, "regionales": regionales, "nacionales": nacionales, "premium": premium}
+        return {
+            "locales": locales, 
+            "regionales": regionales, 
+            "nacionales": nacionales, 
+            "premium": premium,
+            "user_reports": user_reports
+        }
     except:
         return None
 
@@ -66,6 +74,10 @@ async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zi
     TU RESPUESTA DEBE SER EN {lang.upper()}.
     REGLA 3-3-5-1: 3 precios locales, 3 estatales, 5 nacionales, 1 premium.
     DATOS SQL: {datos}
+    INSTRUCCIONES ADICIONALES:
+    - Incluye precios reportados por usuarios como 'No verificado'.
+    - Nunca los combines con precios oficiales, solo comparativos.
+    - Resalta si son más bajos o más altos que los oficiales.
     FORMATO: Tablas HTML, columnas Nivel/Ubicación/Precio Cash/Precio Seguro.
     """
     response = openai.chat.completions.create(
@@ -109,3 +121,19 @@ async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...)):
     prompt = f"Responde como Aura de May Roga LLC a la duda sobre este reporte: {contexto}. Pregunta: {pregunta}. Sé breve y profesional."
     response = openai.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
     return {"resultado": response.choices[0].message.content}
+
+# --- Reporte de precios por usuarios ---
+@app.post("/reportar-precio")
+async def reportar_precio(code: str = Form(...), zip_user: str = Form(...), state: str = Form(...), precio: float = Form(...), nota: str = Form("Reporte usuario")):
+    try:
+        conn = sqlite3.connect('cost_estimates.db')
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_prices (code, zip_code, state, reported_price, note)
+            VALUES (?,?,?,?,?)
+        """, (code.upper(), zip_user, state.upper(), precio, nota))
+        conn.commit()
+        conn.close()
+        return {"status": "ok", "msg": "Precio reportado guardado"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
