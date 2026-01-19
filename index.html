@@ -1,283 +1,176 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA by May Roga LLC</title>
-    <script src="https://js.stripe.com/v3/"></script>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #000; color: #fff; margin: 0; text-align: center; }
-        .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; }
-        .marquee-content { display: inline-block; animation: scroll 35s linear infinite; color: #00d4ff; font-weight: 900; font-size: 1.2rem; }
-        @keyframes scroll { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
-        
-        .container { max-width: 950px; margin: auto; padding: 25px; border: 3px solid #00d4ff; border-radius: 40px; background: #080808; margin-top: 10px; }
-        .yellow { color: #ffff00; font-weight: bold; font-size: 1.5rem; }
-        
-        .search-hero { font-size: 1.3rem; color: #00d4ff; font-weight: bold; margin: 20px 0; border: 1px dashed #00d4ff; padding: 20px; border-radius: 20px; line-height: 1.5; }
-        
-        /* Layout Input y Borrar */
-        .input-group { width: 90%; margin: 20px auto; display: flex; gap: 10px; align-items: center; }
-        input { flex: 1; padding: 18px; border-radius: 15px; border: 2px solid #00d4ff; background: #000; color: #fff; font-size: 1.2rem; outline: none; }
-        .clear-btn { background: #333; color: #ff4d4d; border: 2px solid #ff4d4d; border-radius: 15px; padding: 15px 20px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.3s; }
-        .clear-btn:hover { background: #ff4d4d; color: #000; }
-
-        .plan-card { border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; margin: 10px; display: inline-block; width: 28%; vertical-align: top; background: #0a0a0a; }
-        .btn-pay { background: #00d4ff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; transition: 0.3s; }
-        .btn-pay:hover { background: #fff; transform: scale(1.02); }
-
-        .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; font-size: 1.1rem; line-height: 1.6; display: none; border-radius: 20px; }
-        
-        .btn-ex { padding: 12px 20px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; color: white; transition: 0.2s; }
-        .btn-ex:active { transform: translateY(2px); }
-
-        .donacion-box { border: 5px solid #ffff00; border-radius: 35px; padding: 30px; margin-top: 40px; }
-        .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
-
-        .legal-box { font-size: 0.8rem; color: #777; margin-top: 30px; padding: 15px; border-top: 1px solid #333; }
-        .doubt-section { margin-top: 20px; border: 2px solid #ffff00; padding: 20px; border-radius: 25px; display: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA by May Roga LLC</title>
+<style>
+  body { font-family: 'Segoe UI', Arial; background: #000; color: #fff; margin: 0; text-align: center; }
+  .marquee { background: #001a33; border-bottom: 2px solid #00d4ff; overflow: hidden; white-space: nowrap; padding: 15px 0; }
+  .marquee-content { display: inline-block; animation: scroll 35s linear infinite; color: #00d4ff; font-weight: 900; font-size: 1.2rem; }
+  @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .container { max-width: 950px; margin: auto; padding: 25px; border: 3px solid #00d4ff; border-radius: 40px; background: #080808; margin-top: 10px; }
+  .yellow { color: #ffff00; font-weight: bold; font-size: 1.5rem; }
+  .search-hero { font-size: 1.3rem; color: #00d4ff; font-weight: bold; margin: 20px 0; border: 1px dashed #00d4ff; padding: 20px; border-radius: 20px; line-height: 1.5; }
+  .plan-card { border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; margin: 10px; display: inline-block; width: 28%; vertical-align: top; background: #0a0a0a; }
+  .btn-pay { background: #00d4ff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; transition: 0.3s; }
+  input { padding: 18px; border-radius: 15px; border: 2px solid #00d4ff; background: #000; color: #fff; margin: 10px; font-size: 1.2rem; width: 100%; box-sizing: border-box; }
+  .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; font-size: 1.1rem; line-height: 1.6; display: none; border-radius: 20px; }
+  .res-top { color: #ffff00; font-weight: bold; border-bottom: 1px solid #ffff00; margin-bottom: 10px; display: block; }
+  .donacion-box { border: 5px solid #ffff00; border-radius: 35px; padding: 30px; margin-top: 40px; }
+  .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
+  .btn-ex { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; color: white; }
+  .clear-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: #333; color: #00d4ff; border: 1px solid #00d4ff; border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
+  #geo-txt { color: #ffff00; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; }
+  .login-box { margin: 20px auto; padding: 20px; border: 2px solid #00d4ff; border-radius: 25px; max-width: 400px; background: #0a0a0a; }
+  .login-box input { width: 80%; margin: 10px auto; display: block; }
+  .map-btn { display: block; background: #ff4d4d; color: white; padding: 15px; border-radius: 15px; text-decoration: none; font-weight: bold; margin-top: 15px; }
+  .doubt-section { margin-top: 20px; border: 2px solid #ffff00; padding: 20px; border-radius: 25px; display: none; }
+</style>
 </head>
 <body>
 
 <div class="marquee">
-    <div class="marquee-content" id="marquee-text">
-        AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES FOR CONSUMERS • TOTAL TRANSPARENCY • MARKET DATA ONLY •
-    </div>
+  <div class="marquee-content" id="marquee-text">
+      AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •
+  </div>
 </div>
 
 <div class="container">
-    <h1 style="color: #00d4ff; font-size: 4rem; margin: 0;">AURA</h1>
-    <div class="yellow">by May Roga LLC</div>
+  <h1 style="color: #00d4ff; font-size: 4rem; margin: 0;">AURA</h1>
+  <div class="yellow">by May Roga LLC</div>
 
-    <div class="search-hero" id="txt-hero">
-        CONSULT USA MEDICAL & DENTAL PRICE ESTIMATES.<br>
-        Enter procedure, symptom, or code for market range and fair price.
+  <div class="search-hero" id="search-hero">
+    CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.<br>
+    Introduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo.
+  </div>
+
+  <div class="lang-box">
+    <button class="btn-ex" style="background:#00d4ff; color:#000;" onclick="changeLang('es')">ES</button>
+    <button class="btn-ex" style="background:#fff; color:#000;" onclick="changeLang('en')">EN</button>
+    <button class="btn-ex" style="background:#ff4d4d; color:#000;" onclick="changeLang('ht')">CREOL</button>
+  </div>
+
+  <div class="login-box">
+    <input type="text" id="admin-user" placeholder="Usuario Admin (Opcional)">
+    <input type="password" id="admin-pass" placeholder="Contraseña Admin">
+    <button class="btn-pay" onclick="loginAdmin()">ACCEDER GRATIS</button>
+  </div>
+
+  <div id="paywall">
+    <div class="plan-card"><h4>C. RÁPIDA</h4><p>$5.99</p><button class="btn-pay" onclick="pagar('rapido')">PAGAR ACCESO</button></div>
+    <div class="plan-card"><h4>STANDARD</h4><p>$9.99</p><button class="btn-pay" onclick="pagar('standard')">PAGAR ACCESO</button></div>
+    <div class="plan-card"><h4>ESPECIAL</h4><p>$19.99</p><button class="btn-pay" onclick="pagar('special')">PAGAR ACCESO</button></div>
+  </div>
+
+  <div id="sistema-aura" style="display:none;">
+    <div id="geo-txt">Detectando ubicación para precisión...</div>
+    <div style="position:relative; width:85%; margin:auto;">
+      <input type="text" id="q" placeholder="Procedimiento, síntoma o código (ej: MRI, D2750)">
+      <button class="clear-btn" onclick="document.getElementById('q').value=''">BORRAR</button>
+    </div>
+    <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem; margin-top:20px; width:85%;">REVELAR COMPARATIVA AURA</button>
+   
+    <div id="res" class="res-box"></div>
+   
+    <a id="map-link" class="map-btn" href="#" target="_blank" style="display:none;">📍 VER CLÍNICAS EN GOOGLE MAPS (ZONA ZIP)</a>
+
+    <div id="export-bar" style="display:none; margin-top:20px;">
+      <button class="btn-ex" style="background:#25d366;" onclick="shareWA()">WhatsApp</button>
+      <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">Escuchar</button>
+      <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()">PDF / Print</button>
     </div>
 
-    <div class="lang-box">
-        <button class="btn-ex" style="background:#00d4ff; color:#000;" onclick="setLanguage('es')">ESPAÑOL</button>
-        <button class="btn-ex" style="background:#fff; color:#000;" onclick="setLanguage('en')">ENGLISH</button>
-        <button class="btn-ex" style="background:#ff4d4d; color:#fff;" onclick="setLanguage('ht')">KREYÒL</button>
+    <div id="doubt-section" class="doubt-section">
+      <h3 style="color:#ffff00;">¿TIENE DUDAS SOBRE ESTE REPORTE?</h3>
+      <input type="text" id="doubt-q" placeholder="Haga su pregunta adicional aquí...">
+      <button class="btn-pay" onclick="askAura()">ACLARAR DUDA</button>
+      <div id="doubt-res" style="margin-top:15px; color:#00d4ff;"></div>
     </div>
 
-    <div class="login-box" id="admin-area" style="margin: 20px auto; max-width: 400px; border: 1px solid #333; padding: 15px; border-radius: 20px;">
-        <input type="text" id="admin-user" placeholder="Admin Username" style="font-size: 0.9rem; padding: 10px; width: 80%;">
-        <input type="password" id="admin-pass" placeholder="Password" style="font-size: 0.9rem; padding: 10px; width: 80%;">
-        <button class="btn-pay" onclick="loginAdmin()" id="btn-login-text" style="margin-top: 10px;">FREE ACCESS (ADMIN)</button>
+    <div class="legal-box">
+       BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y precios dentales de mercado.
     </div>
+  </div>
 
-    <div id="paywall">
-        <div class="plan-card">
-            <h4 id="txt-p1-title">QUICK SEARCH</h4>
-            <p>$5.99</p>
-            <button class="btn-pay" onclick="iniciarPago('rapido')">PAY ACCESS</button>
-        </div>
-        <div class="plan-card">
-            <h4 id="txt-p2-title">STANDARD</h4>
-            <p>$9.99</p>
-            <button class="btn-pay" onclick="iniciarPago('standard')">PAY ACCESS</button>
-        </div>
-        <div class="plan-card">
-            <h4 id="txt-p3-title">SPECIAL</h4>
-            <p>$19.99</p>
-            <button class="btn-pay" onclick="iniciarPago('special')">PAY ACCESS</button>
-        </div>
-    </div>
-
-    <div id="sistema-aura" style="display:none;">
-        <div id="geo-txt" style="color: #ffff00; font-weight: bold; margin-bottom: 10px;">Searching location...</div>
-        
-        <div class="input-group">
-            <input type="text" id="q" placeholder="Procedure, code or symptom...">
-            <button class="clear-btn" id="btn-clear" onclick="document.getElementById('q').value=''">CLEAR</button>
-        </div>
-
-        <button class="btn-pay" onclick="getEstimate()" id="btn-reveal" style="font-size:1.8rem; width:90%;">REVEAL AURA COMPARISON</button>
-        
-        <div id="res" class="res-box"></div>
-        
-        <a id="map-link" class="map-btn" href="#" target="_blank" style="display:none; background: #ff4d4d; color:white; padding: 15px; border-radius: 15px; text-decoration: none; display: block; margin-top: 20px; font-weight: bold;">📍 VIEW CLINICS ON MAP (ZIP ZONE)</a>
-
-        <div id="export-bar" style="display:none; margin-top:20px;">
-            <button class="btn-ex" style="background:#25d366;" onclick="shareWA()">WhatsApp</button>
-            <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()" id="btn-listen">Listen</button>
-            <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="window.print()">PDF / Print</button>
-        </div>
-
-        <div id="doubt-section" class="doubt-section">
-            <h3 id="txt-doubt-title" style="color:#ffff00;">DOUBTS ABOUT THIS REPORT?</h3>
-            <input type="text" id="doubt-q" placeholder="Ask your follow-up question...">
-            <button class="btn-pay" onclick="askAura()" id="btn-doubt">CLARIFY DOUBT</button>
-            <div id="doubt-res" style="margin-top:15px; color:#00d4ff; text-align: left;"></div>
-        </div>
-
-        <div class="legal-box" id="txt-legal">
-            LEGAL SHIELD: This report is issued by Aura by May Roga LLC. We are not doctors or insurers. This is an EDUCATIONAL ESTIMATE based on official CMS data and market dental prices.
-        </div>
-    </div>
-
-    <div class="donacion-box">
-        <h2 id="txt-donar-title" style="color:#ffff00; margin-top:0;">SOLIDARITY & EMPLOYMENT FUND</h2>
-        <button class="btn-donar" onclick="iniciarPago('donacion')" id="btn-donar-text">MAKE VOLUNTARY DONATION</button>
-    </div>
+  <div class="donacion-box">
+    <h2 style="color:#ffff00; margin-top:0;">FONDO DE SOLIDARIDAD Y EMPLEO</h2>
+    <button class="btn-donar" onclick="pagar('donacion')">REALIZAR DONACIÓN VOLUNTARIA</button>
+  </div>
 </div>
 
 <script>
-let currentLang = 'en';
+let currentLang = 'es';
 let userZip = "";
 
-const translations = {
-    'es': {
-        'marquee': 'AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS • TRANSPARENCIA TOTAL • SOLO INFORMACIÓN DE MERCADO •',
-        'hero': 'CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.<br>Introduce procedimiento, síntoma o código.',
-        'p1': 'C. RÁPIDA', 'p2': 'STANDARD', 'p3': 'ESPECIAL',
-        'pay_btn': 'PAGAR ACCESO',
-        'clear': 'BORRAR',
-        'reveal': 'REVELAR COMPARATIVA AURA',
-        'placeholder': 'Procedimiento, código o síntoma...',
-        'geo': 'Detectando ubicación...',
-        'listen': 'Escuchar',
-        'doubt_t': '¿DUDAS SOBRE ESTE REPORTE?',
-        'btn_doubt': 'ACLARAR DUDA',
-        'legal': 'BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC. No somos médicos ni aseguradoras.',
-        'fund': 'FONDO DE SOLIDARIDAD Y EMPLEO',
-        'btn_donar': 'REALIZAR DONACIÓN VOLUNTARIA'
-    },
-    'en': {
-        'marquee': 'AURA BY MAY ROGA LLC: MEDICAL PRICE ESTIMATES • TOTAL TRANSPARENCY • MARKET DATA ONLY •',
-        'hero': 'CONSULT USA MEDICAL & DENTAL PRICE ESTIMATES.<br>Enter procedure, symptom, or code.',
-        'p1': 'QUICK SEARCH', 'p2': 'STANDARD', 'p3': 'SPECIAL',
-        'pay_btn': 'PAY ACCESS',
-        'clear': 'CLEAR',
-        'reveal': 'REVEAL AURA COMPARISON',
-        'placeholder': 'Procedure, code or symptom...',
-        'geo': 'Detecting location...',
-        'listen': 'Listen',
-        'doubt_t': 'DOUBTS ABOUT THIS REPORT?',
-        'btn_doubt': 'CLARIFY DOUBT',
-        'legal': 'LEGAL SHIELD: This report is issued by Aura by May Roga LLC. We are not doctors or insurers.',
-        'fund': 'SOLIDARITY & EMPLOYMENT FUND',
-        'btn_donar': 'MAKE VOLUNTARY DONATION'
-    },
-    'ht': {
-        'marquee': 'AURA PA MAY ROGA LLC: ESTIMASYON PRI MEDIKAL • TRANSPARANS TOTAL • DONE MACHE SÈLMAN •',
-        'hero': 'KONSILTE ESTIMASYON PRI MEDIKAL AK DANTÈ OZE.<br>Mete pwosedi, senptòm oswa kòd.',
-        'p1': 'CHÈCHÈ RAPID', 'p2': 'ESTANDA', 'p3': 'ESPESYAL',
-        'pay_btn': 'PEYE AKSÈ',
-        'clear': 'EFFACE',
-        'reveal': 'REVELE KONPARAZON AURA',
-        'placeholder': 'Pwosedi, kòd oswa senptòm...',
-        'geo': 'Ap detekte kote ou ye...',
-        'listen': 'Koute',
-        'doubt_t': 'DUD SOU RAPÒ SA A?',
-        'btn_doubt': 'KLARE DUD',
-        'legal': 'PWOTEKSYON LEGAL: Rapò sa a pibliye pa Aura pa May Roga LLC. Nou pa doktè ni asirans.',
-        'fund': 'FONDASYON SOLIDARITE AK ANPLWA',
-        'btn_donar': 'FÈ YON DON VOLONTÈ'
-    }
-};
-
-function setLanguage(l) {
-    currentLang = l;
-    const t = translations[l];
-    document.getElementById('marquee-text').innerText = t.marquee;
-    document.getElementById('txt-hero').innerHTML = t.hero;
-    document.getElementById('txt-p1-title').innerText = t.p1;
-    document.getElementById('txt-p2-title').innerText = t.p2;
-    document.getElementById('txt-p3-title').innerText = t.p3;
-    document.querySelectorAll('.btn-pay').forEach(b => { if(b.innerText.includes('PAY') || b.innerText.includes('PAGAR') || b.innerText.includes('PEYE')) b.innerText = t.pay_btn; });
-    document.getElementById('btn-clear').innerText = t.clear;
-    document.getElementById('btn-reveal').innerText = t.reveal;
-    document.getElementById('q').placeholder = t.placeholder;
-    document.getElementById('btn-listen').innerText = t.listen;
-    document.getElementById('txt-doubt-title').innerText = t.doubt_t;
-    document.getElementById('btn-doubt').innerText = t.btn_doubt;
-    document.getElementById('txt-legal').innerText = t.legal;
-    document.getElementById('txt-donar-title').innerText = t.fund;
-    document.getElementById('btn-donar-text').innerText = t.btn_donar;
-}
-
 async function getGeo() {
-    if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(async pos=>{
-            try {
-                const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`);
-                const data = await r.json();
-                userZip = data.postcode || "33101";
-                document.getElementById('geo-txt').innerText = `Location: ZIP ${userZip}`;
-            } catch { document.getElementById('geo-txt').innerText = "Location detected (USA)"; }
-        });
-    }
-}
-
-window.onload = () => { getGeo(); setLanguage('en'); };
-
-async function iniciarPago(plan) {
-    const response = await fetch("/create-checkout-session", {
-        method: "POST",
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: `plan=${plan}`
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      try {
+        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=${currentLang}`);
+        const data = await r.json();
+        userZip = data.postcode || "";
+        document.getElementById('geo-txt').innerText = userZip ? `Ubicación: ZIP ${userZip}` : "Ubicación: USA";
+      } catch { document.getElementById('geo-txt').innerText = "Ubicación detectada."; }
     });
-    const session = await r.json();
-    const stripe = Stripe('TU_STRIPE_PUBLIC_KEY'); // Reemplaza con tu clave pública
-    stripe.redirectToCheckout({ sessionId: session.id });
+  }
 }
+
+window.onload = getGeo;
 
 async function getEstimate() {
-    const q = document.getElementById('q').value.trim();
-    if(!q) return;
-    const resDiv = document.getElementById('res');
-    resDiv.style.display='block';
-    resDiv.innerHTML = "<h2 class='yellow'>AURA ANALYZING MARKET DATA...</h2>";
+  const q = document.getElementById('q').value.trim();
+  const resDiv = document.getElementById('res');
+  resDiv.style.display='block';
+  resDiv.innerHTML = "<h2 class='yellow'>Aura procesando reporte 3-3-5-1...</h2>";
 
-    const fd = new FormData();
-    fd.append("consulta", q);
-    fd.append("lang", currentLang);
-    fd.append("zip_user", userZip);
+  const fd = new FormData();
+  fd.append("consulta", q);
+  fd.append("lang", currentLang);
+  fd.append("zip_user", userZip);
 
-    try {
-        const r = await fetch("/estimado", {method:"POST", body:fd});
-        const d = await r.json();
-        resDiv.innerHTML = d.resultado;
-        
-        document.getElementById('map-link').href = `https://www.google.com/maps/search/${encodeURIComponent(q)}+medical+near+${userZip}`;
-        document.getElementById('export-bar').style.display='block';
-        document.getElementById('doubt-section').style.display='block';
-    } catch { resDiv.innerText = "Error contacting Aura Brain."; }
+  try {
+    const r = await fetch("/estimado", {method:"POST", body:fd});
+    const d = await r.json();
+    resDiv.innerHTML = d.resultado;
+   
+    // Mostrar Mapa y Botones
+    const mapLink = document.getElementById('map-link');
+    mapLink.href = `https://www.google.com/maps/search/${encodeURIComponent(q)}+near+${userZip}`;
+    mapLink.style.display = 'block';
+    document.getElementById('export-bar').style.display='block';
+    document.getElementById('doubt-section').style.display='block';
+  } catch { resDiv.innerText = "Error consultando a Aura."; }
 }
 
 async function askAura() {
-    const q = document.getElementById('doubt-q').value;
-    const ctx = document.getElementById('res').innerText;
-    const dRes = document.getElementById('doubt-res');
-    dRes.innerText = "...";
-    const fd = new FormData();
-    fd.append("pregunta", q);
-    fd.append("contexto", ctx);
-    fd.append("lang", currentLang);
-    const r = await fetch("/aclarar-duda", {method:"POST", body:fd});
-    const d = await r.json();
-    dRes.innerHTML = "<strong>AURA:</strong> " + d.resultado;
+  const q = document.getElementById('doubt-q').value;
+  const ctx = document.getElementById('res').innerText;
+  const dRes = document.getElementById('doubt-res');
+  dRes.innerText = "Aura respondiendo...";
+  const fd = new FormData();
+  fd.append("pregunta", q);
+  fd.append("contexto", ctx);
+  const r = await fetch("/aclarar-duda", {method:"POST", body:fd});
+  const d = await r.json();
+  dRes.innerHTML = "<strong>Respuesta:</strong> " + d.resultado;
 }
 
 async function loginAdmin(){
-    const fd = new FormData();
-    fd.append("user", document.getElementById('admin-user').value);
-    fd.append("pw", document.getElementById('admin-pass').value);
-    const r = await fetch("/login-admin", {method:"POST", body:fd});
-    if(r.ok){
-        document.getElementById('paywall').style.display='none';
-        document.getElementById('sistema-aura').style.display='block';
-        document.getElementById('admin-area').style.display='none';
-    } else { alert("Access Denied"); }
+  const fd = new FormData();
+  fd.append("user", document.getElementById('admin-user').value);
+  fd.append("pw", document.getElementById('admin-pass').value);
+  const r = await fetch("/login-admin", {method:"POST", body:fd});
+  if(r.ok){
+    document.getElementById('paywall').style.display='none';
+    document.getElementById('sistema-aura').style.display='block';
+  } else { alert("Error de acceso."); }
 }
 
-function readOut(){ 
-    const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); 
-    ut.lang = currentLang === 'es' ? 'es-ES' : (currentLang === 'ht' ? 'fr-FR' : 'en-US');
-    window.speechSynthesis.speak(ut); 
-}
+function changeLang(l){ currentLang = l; alert("Idioma: " + l); }
+function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); window.speechSynthesis.speak(ut); }
+function exportPDF(){ window.print(); }
+function pagar(p){ if(p==='donacion') window.location.href="https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"; }
 </script>
 </body>
 </html>
