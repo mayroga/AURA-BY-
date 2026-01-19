@@ -6,136 +6,249 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from dotenv import load_dotenv
-
-from aura_base_dataset import init_db
-
-# --- Inicializar DB resumida ---
-init_db()
+import requests
+import pandas as pd
+from datetime import datetime
 
 load_dotenv()
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- Configuración Stripe & OpenAI ---
+# ==============================
+# Configuración Stripe & IA
+# ==============================
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+# Gemini seguro: si no hay key, no bloquea deploy
+client_gemini = None
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if gemini_api_key:
+    try:
+        from google import genai
+        client_gemini = genai.Client(api_key=gemini_api_key)
+    except Exception as e:
+        print(f"[WARNING] Gemini no inicializado: {e}")
+else:
+    print("[WARNING] GEMINI_API_KEY no encontrada, Gemini deshabilitado.")
+
+# OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Precios de acceso
 PRICE_IDS = {
-    "rapido":"price_1Snam1BOA5mT4t0PuVhT2ZIq",
-    "standard":"price_1SnaqMBOA5mT4t0PppRG2PuE",
-    "special":"price_1SnatfBOA5mT4t0PZouWzfpw"
+    "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
+    "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
+    "special": "price_1SnatfBOA5mT4t0PZouWzfpw"
 }
 LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 
-# --- Consulta SQL combinada oficial + usuarios ---
-def query_sql_3351(termino, zip_user=None):
-    try:
-        conn = sqlite3.connect('cost_estimates.db')
-        cur = conn.cursor()
-        b = f"%{termino.upper()}%"
+# Middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
-        # Locales
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? AND zip_code=? LIMIT 3",(b,zip_user))
-        locales = cur.fetchall()
+# ==============================
+# FUNCIONES SQL Y CMS PUBLIC DATA
+# ==============================
 
-        # Estatales
-        state_code = zip_user[:2] if zip_user else ""
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? AND state=? LIMIT 3",(b,state_code))
-        regionales = cur.fetchall()
+# Crear o actualizar base de datos desde CMS (mensual)
+def ingest_cms_data():
+    conn = sqlite3.connect("aura_brain.db")
 
-        # Nacionales 5 más bajos
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY low_price ASC LIMIT 5",(b,))
-        nacionales = cur.fetchall()
+    CMS_DATASETS = {
+        "physician_fee": "https://data.cms.gov/resource/7b3x-3k6u.csv?$limit=50000",
+        "outpatient": "https://data.cms.gov/resource/9wzi-peqs.csv?$limit=50000"
+    }
 
-        # Premium
-        cur.execute("SELECT * FROM cost_estimates WHERE description LIKE ? ORDER BY high_price DESC LIMIT 1",(b,))
-        premium = cur.fetchone()
+    for name, url in CMS_DATASETS.items():
+        try:
+            print(f"Descargando dataset {name}...")
+            df = pd.read_csv(url)
 
-        # Reportes de usuarios
-        cur.execute("SELECT * FROM user_prices WHERE code LIKE ? AND zip_code=?",(f"%{termino.upper()}%",zip_user))
-        user_reports = cur.fetchall()
+            # NORMALIZACIÓN
+            df.columns = [c.lower() for c in df.columns]
+            keep = [c for c in df.columns if c in ["hcpcs_code","cpt_code","payment_amount","state","locality"]]
+            df = df[keep]
+            df["source"] = name
+            df["ingested_at"] = datetime.utcnow()
 
-        conn.close()
-        return {"locales":locales,"regionales":regionales,"nacionales":nacionales,"premium":premium,"user_reports":user_reports}
-    except:
+            df.to_sql("government_prices", conn, if_exists="append", index=False)
+        except Exception as e:
+            print(f"[ERROR INGESTA {name}] {e}")
+
+    conn.close()
+    print("✔ CMS data ingested")
+
+# Consulta de precios legales
+def get_estimated_price(code, state):
+    conn = sqlite3.connect("aura_brain.db")
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount)
+        FROM government_prices
+        WHERE (hcpcs_code=? OR cpt_code=?) AND state=?
+    """, (code, code, state))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if not row or row[0] is None:
         return None
 
-# --- Endpoints ---
+    avg, min_p, max_p = row
+    return {"average": round(avg,2), "min": round(min_p,2), "max": round(max_p,2)}
+
+# Para precios dentales: solo rangos históricos y educativos
+def dental_fair_price(low, high):
+    return {"fair_min": round(low*0.9,2), "fair_max": round(high*1.1,2)}
+
+# ==============================
+# Función SQL local (existente)
+# ==============================
+def query_sql(termino, zip_user=None):
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(base_dir, 'cost_estimates.db')
+        if not os.path.exists(db_path):
+            return "SQL_OFFLINE"
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        busqueda = f"%{termino.strip().upper()}%"
+
+        cursor.execute("""
+        SELECT cpt_code, description, state, zip_code, low_price, high_price
+        FROM cost_estimates
+        WHERE description LIKE ? OR cpt_code LIKE ?
+        ORDER BY low_price ASC
+        LIMIT 20
+        """, (busqueda, busqueda))
+        results = cursor.fetchall()
+        conn.close()
+
+        if not results:
+            return "DATO_NO_SQL"
+
+        local, county, state, national = [], [], [], []
+        for r in results:
+            code, desc, state_r, zip_r, low, high = r
+            if zip_user and zip_r == zip_user:
+                local.append(r)
+            elif zip_user and zip_r.startswith(zip_user[:3]):
+                county.append(r)
+            elif zip_user and state_r == zip_user[:2]:
+                state.append(r)
+            else:
+                national.append(r)
+
+        return {"local": local[:3], "county": county[:3], "state": state[:3], "national": national[:5]}
+
+    except Exception as e:
+        print(f"[ERROR SQL] {e}")
+        return f"ERROR_SQL: {str(e)}"
+
+# ==============================
+# Ruta principal
+# ==============================
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
-    if os.path.exists("index.html"):
-        with open("index.html","r",encoding="utf-8") as f:
-            return f.read()
-    return "Error: index.html no encontrado."
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(base_dir, "index.html"), "r", encoding="utf-8") as f:
+        return f.read()
 
+# ==============================
+# Obtener estimado con IA + SQL + CMS
+# ==============================
 @app.post("/estimado")
 async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    datos = query_sql_3351(consulta, zip_user)
+    # Ingesta CMS automática (puede ser un cron job mensual en producción)
+    ingest_cms_data()
+
+    datos_sql = query_sql(consulta, zip_user)
+    idiomas = {"es": "Español", "en": "English", "ht": "Kreyòl (Haitian Creole)"}
+    idioma_destino = idiomas.get(lang, "Español")
 
     prompt = f"""
-Eres AURA de May Roga LLC.
-Idioma: {lang}
+ERES AURA, MOTOR DE ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES DE MAY ROGA LLC.
+IDIOMA: {idioma_destino}
+DATOS SQL ENCONTRADOS: {datos_sql}
+CONSULTA DEL USUARIO: {consulta}
+ZIP DETECTADO: {zip_user}
 
-REGLA 3-3-5-1:
-1. 3 Precios Locales (ZIP {zip_user})
-2. 3 Precios Estatales
-3. 5 Precios Nacionales (los más bajos)
-4. 1 Opción Premium
+OBJETIVO:
+1) Usar datos públicos oficiales (CMS, Hospital Price Transparency) para calcular precios educativos.
+2) Si es dental, usar rangos históricos y regionales, NO clínicas.
+3) Comparar opciones locales, condado, estado, nacional.
+4) Mostrar opción premium educativa.
+5) Explicación clara y sencilla, resaltando en azul lo que el usuario preguntó.
+6) Siempre contexto de ahorro y ventajas/desventajas.
+7) Resumen final con BLINDAJE LEGAL:
 
-Incluye precios reportados por usuarios como 'No verificado'.
-
-Formato: Tablas HTML, columnas: Nivel, Ubicación, Precio Cash, Precio Est. Seguro
+BLINDAJE LEGAL
+Este reporte es emitido por Aura by May Roga LLC,
+agencia de información independiente.
+No somos médicos, clínicas ni aseguradoras.
+No damos diagnósticos ni cotizaciones.
+Este es un ESTIMADO EDUCATIVO.
+El proveedor final define el precio.
 """
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role":"user","content":prompt}],
-        temperature=0.3
-    )
-    return {"resultado":response.choices[0].message.content}
 
+    motores = []
+    if client_gemini:
+        try:
+            modelos_gemini = client_gemini.models.list().data
+            if modelos_gemini:
+                motores.append(("gemini", modelos_gemini[0].name))
+        except: pass
+    motores.append(("openai", "gpt-4"))
+
+    for motor, modelo in motores:
+        try:
+            if motor == "gemini" and client_gemini:
+                response = client_gemini.models.generate_content(model=modelo, contents=prompt)
+                return {"resultado": response.text}
+            elif motor == "openai":
+                response = openai.chat.completions.create(
+                    model=modelo,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.5,
+                )
+                return {"resultado": response.choices[0].message.content}
+        except:
+            continue
+
+    return {"resultado": "Estimado generado automáticamente sin datos exactos SQL."}
+
+# ==============================
+# Crear sesión Stripe
+# ==============================
 @app.post("/create-checkout-session")
 async def create_checkout(plan: str = Form(...)):
-    if plan=="donacion":
-        return {"url":LINK_DONACION}
-
-    price_id = PRICE_IDS.get(plan)
-    if not price_id:
-        return JSONResponse(status_code=400, content={"error":"Plan inválido"})
-
+    if plan.lower() == "donacion":
+        return {"url": LINK_DONACION}
     try:
+        mode = "subscription" if plan.lower() == "special" else "payment"
         session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{'price':price_id,'quantity':1}],
-            mode='payment',
+            payment_method_types=["card"],
+            line_items=[{"price": PRICE_IDS[plan.lower()], "quantity": 1}],
+            mode=mode,
             success_url="https://aura-by.onrender.com/?success=true",
             cancel_url="https://aura-by.onrender.com/"
         )
-        return {"url":session.url}
+        return {"url": session.url}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error":str(e)})
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
+# ==============================
+# Login Admin / Acceso gratuito
+# ==============================
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    if user==os.getenv("ADMIN_USERNAME") and pw==os.getenv("ADMIN_PASSWORD"):
-        return {"status":"ok"}
-    return JSONResponse(status_code=401, content={"error":"Invalid"})
-
-@app.post("/aclarar-duda")
-async def aclarar_duda(pregunta: str = Form(...), contexto: str = Form(...)):
-    prompt = f"Responde como Aura experto en Medicare/Medicaid, precios de hospitales y clínicas a la duda: {contexto}. Pregunta: {pregunta}"
-    response = openai.chat.completions.create(model="gpt-4o", messages=[{"role":"user","content":prompt}])
-    return {"resultado":response.choices[0].message.content}
-
-@app.post("/reportar-precio")
-async def reportar_precio(code: str = Form(...), zip_user: str = Form(...), state: str = Form(...), precio: float = Form(...), nota: str = Form("Reporte usuario")):
-    try:
-        conn = sqlite3.connect('cost_estimates.db')
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO user_prices (code, zip_code, state, reported_price, note)
-            VALUES (?,?,?,?,?)
-        """,(code.upper(),zip_user,state.upper(),precio,nota))
-        conn.commit()
-        conn.close()
-        return {"status":"ok","msg":"Precio reportado guardado"}
-    except Exception as e:
-        return {"status":"error","msg":str(e)}
+    ADMIN_USER = os.getenv("ADMIN_USERNAME", "TU_USERNAME")
+    ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "TU_PASSWORD")
+    if user == ADMIN_USER and pw == ADMIN_PASS:
+        return {"status": "success", "access": "full"}
+    return JSONResponse(status_code=401, content={"status": "error"})
