@@ -1,0 +1,84 @@
+import sqlite3
+import pandas as pd
+import os
+
+def init_db():
+    """Crea la estructura de la base de datos de Aura si no existe."""
+    conn = sqlite3.connect('aura_brain.db')
+    cursor = conn.cursor()
+    # Tabla diseñada para la regla 3-3-3-5-1
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            cpt_code TEXT,
+            low_price REAL NOT NULL,
+            high_price REAL,
+            state TEXT NOT NULL,
+            zip_code TEXT NOT NULL,
+            provider_type TEXT, -- Médico, Dentista, Terapeuta, etc.
+            source_file TEXT,
+            imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    print("✅ Base de datos AURA_BRAIN inicializada.")
+
+def import_external_data(file_path):
+    """
+    Lee archivos CSV o Excel y los añade a la base de datos.
+    El archivo debe tener columnas similares a: 
+    description, low_price, state, zip_code
+    """
+    if not os.path.exists(file_path):
+        print(f"❌ Error: El archivo {file_path} no existe.")
+        return
+
+    print(f"🔄 Procesando {file_path}...")
+    
+    try:
+        # Detectar extensión
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file_path)
+        else:
+            print("❌ Formato no soportado. Use CSV o Excel.")
+            return
+
+        # Normalización de columnas (para que no importe si vienen en mayúsculas o minúsculas)
+        df.columns = [c.lower().strip() for c in df.columns]
+        
+        # Verificar columnas mínimas requeridas para el ahorro del pobre
+        required = ['description', 'low_price', 'state', 'zip_code']
+        for req in required:
+            if req not in df.columns:
+                print(f"❌ Falta la columna obligatoria: {req}")
+                return
+
+        # Añadir metadatos de importación
+        df['source_file'] = os.path.basename(file_path)
+        df['zip_code'] = df['zip_code'].astype(str).str.zfill(5) # Asegura ZIP de 5 dígitos
+        df['state'] = df['state'].str.upper()
+
+        # Conectar e insertar
+        conn = sqlite3.connect('aura_brain.db')
+        df.to_sql('prices', conn, if_exists='append', index=False)
+        conn.close()
+        
+        print(f"🚀 ÉXITO: Se han importado {len(df)} nuevos registros a Aura.")
+
+    except Exception as e:
+        print(f"❌ Error durante la importación: {e}")
+
+if __name__ == "__main__":
+    # 1. Inicializar
+    init_db()
+    
+    # 2. Ejemplo de uso (Descomenta y cambia el nombre del archivo para importar)
+    # import_external_data("precios_dentales_florida.csv")
+    # import_external_data("medicos_texas_economicos.xlsx")
+    
+    print("\n--- AURA DATA MANAGER ---")
+    print("Coloque sus archivos en la carpeta y llame a import_external_data('nombre_archivo')")
