@@ -15,87 +15,54 @@
   .plan-card { border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; margin: 10px; display: inline-block; width: 28%; vertical-align: top; background: #0a0a0a; }
   .btn-pay { background: #00d4ff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; font-size: 1.1rem; transition: 0.3s; }
   input { padding: 18px; border-radius: 15px; border: 2px solid #00d4ff; background: #000; color: #fff; margin: 10px; font-size: 1.2rem; width: 100%; box-sizing: border-box; }
-  .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; font-size: 1.1rem; line-height: 1.6; display: none; border-radius: 20px; }
-  .res-top { color: #ffff00; font-weight: bold; border-bottom: 1px solid #ffff00; margin-bottom: 10px; display: block; }
+  .res-box { text-align: left; padding: 25px; border: 1px dashed #00d4ff; background: #050505; margin-top: 25px; font-size: 1.1rem; line-height: 1.6; display: none; border-radius: 20px; overflow-x: auto; }
+  .res-box table { width: 100%; border-collapse: collapse; color: #fff; }
+  .res-box th, .res-box td { border: 1px solid #333; padding: 10px; text-align: left; }
+  .res-box th { background: #001a33; color: #00d4ff; }
   .donacion-box { border: 5px solid #ffff00; border-radius: 35px; padding: 30px; margin-top: 40px; }
   .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
   .btn-ex { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; color: white; }
-  .clear-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: #333; color: #00d4ff; border: 1px solid #00d4ff; border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
-  #geo-txt { color: #ffff00; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold; }
   .login-box { margin: 20px auto; padding: 20px; border: 2px solid #00d4ff; border-radius: 25px; max-width: 400px; background: #0a0a0a; }
-  .login-box input { width: 80%; margin: 10px auto; display: block; }
-  .map-btn { display: block; background: #ff4d4d; color: white; padding: 15px; border-radius: 15px; text-decoration: none; font-weight: bold; margin-top: 15px; }
-  .doubt-section { margin-top: 20px; border: 2px solid #ffff00; padding: 20px; border-radius: 25px; display: none; }
 </style>
 </head>
 <body>
 
 <div class="marquee">
-  <div class="marquee-content" id="marquee-text">
-      AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •
-  </div>
+  <div class="marquee-content">AURA BY MAY ROGA LLC: ESTIMADOS DE PRECIOS MÉDICOS PARA CONSUMIDORES • TRANSPARENCIA TOTAL • NO SOMOS MÉDICOS NI ASEGURADORAS • SOLO INFORMACIÓN DE MERCADO •</div>
 </div>
 
 <div class="container">
   <h1 style="color: #00d4ff; font-size: 4rem; margin: 0;">AURA</h1>
   <div class="yellow">by May Roga LLC</div>
 
-  <div class="search-hero" id="search-hero">
-    CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.<br>
-    Introduce procedimiento, síntoma, código o ubicación. Obtén rango de mercado y precio justo.
-  </div>
-
-  <div class="lang-box">
-    <button class="btn-ex" style="background:#00d4ff; color:#000;" onclick="changeLang('es')">ES</button>
-    <button class="btn-ex" style="background:#fff; color:#000;" onclick="changeLang('en')">EN</button>
-    <button class="btn-ex" style="background:#ff4d4d; color:#000;" onclick="changeLang('ht')">CREOL</button>
-  </div>
+  <div class="search-hero">CONSULTA ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES EN USA.<br>Obtén el rango 3-3-5-1 para máximo ahorro.</div>
 
   <div class="login-box">
-    <input type="text" id="admin-user" placeholder="Usuario Admin (Opcional)">
-    <input type="password" id="admin-pass" placeholder="Contraseña Admin">
-    <button class="btn-pay" onclick="loginAdmin()">ACCEDER GRATIS</button>
+    <input type="text" id="admin-user" placeholder="Usuario">
+    <input type="password" id="admin-pass" placeholder="Contraseña">
+    <button class="btn-pay" onclick="loginAdmin()">ACCEDER</button>
   </div>
 
   <div id="paywall">
-    <div class="plan-card"><h4>C. RÁPIDA</h4><p>$5.99</p><button class="btn-pay" onclick="pagar('rapido')">PAGAR ACCESO</button></div>
-    <div class="plan-card"><h4>STANDARD</h4><p>$9.99</p><button class="btn-pay" onclick="pagar('standard')">PAGAR ACCESO</button></div>
-    <div class="plan-card"><h4>ESPECIAL</h4><p>$19.99</p><button class="btn-pay" onclick="pagar('special')">PAGAR ACCESO</button></div>
+    <div class="plan-card"><h4>C. RÁPIDA</h4><p>$5.99</p><button class="btn-pay" onclick="pagar('rapido')">PAGAR</button></div>
+    <div class="plan-card"><h4>STANDARD</h4><p>$9.99</p><button class="btn-pay" onclick="pagar('standard')">PAGAR</button></div>
+    <div class="plan-card"><h4>ESPECIAL</h4><p>$19.99</p><button class="btn-pay" onclick="pagar('special')">PAGAR</button></div>
   </div>
 
   <div id="sistema-aura" style="display:none;">
-    <div id="geo-txt">Detectando ubicación para precisión...</div>
-    <div style="position:relative; width:85%; margin:auto;">
-      <input type="text" id="q" placeholder="Procedimiento, síntoma o código (ej: MRI, D2750)">
-      <button class="clear-btn" onclick="document.getElementById('q').value=''">BORRAR</button>
-    </div>
-    <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem; margin-top:20px; width:85%;">REVELAR COMPARATIVA AURA</button>
-   
+    <div id="geo-txt" class="yellow">Detectando ubicación...</div>
+    <input type="text" id="q" placeholder="Ej: MRI, D2750, Limpieza Dental">
+    <button class="btn-pay" onclick="getEstimate()" style="font-size:1.8rem;">REVELAR COMPARATIVA AURA</button>
     <div id="res" class="res-box"></div>
-   
-    <a id="map-link" class="map-btn" href="#" target="_blank" style="display:none;">📍 VER CLÍNICAS EN GOOGLE MAPS (ZONA ZIP)</a>
-
     <div id="export-bar" style="display:none; margin-top:20px;">
-      <button class="btn-ex" style="background:#25d366;" onclick="shareWA()">WhatsApp</button>
-      <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">Escuchar</button>
-      <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()">PDF / Print</button>
-    </div>
-
-    <div id="doubt-section" class="doubt-section">
-      <h3 style="color:#ffff00;">¿TIENE DUDAS SOBRE ESTE REPORTE?</h3>
-      <input type="text" id="doubt-q" placeholder="Haga su pregunta adicional aquí...">
-      <button class="btn-pay" onclick="askAura()">ACLARAR DUDA</button>
-      <div id="doubt-res" style="margin-top:15px; color:#00d4ff;"></div>
-    </div>
-
-    <div class="legal-box">
-       BLINDAJE LEGAL: Este reporte es emitido por Aura by May Roga LLC, agencia de información independiente. No somos médicos, clínicas ni aseguradoras. Este es un ESTIMADO EDUCATIVO basado en datos públicos oficiales CMS y precios dentales de mercado.
+        <button class="btn-ex" style="background:#25d366;" onclick="window.print()">WhatsApp / Print</button>
+        <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">Escuchar</button>
     </div>
   </div>
 
   <div class="donacion-box">
-    <h2 style="color:#ffff00; margin-top:0;">FONDO DE SOLIDARIDAD Y EMPLEO</h2>
-    <button class="btn-donar" onclick="pagar('donacion')">REALIZAR DONACIÓN VOLUNTARIA</button>
+    <h2 style="color:#ffff00;">FONDO DE SOLIDARIDAD</h2>
+    <button class="btn-donar" onclick="pagar('donacion')">DONACIÓN VOLUNTARIA</button>
   </div>
 </div>
 
@@ -103,74 +70,43 @@
 let currentLang = 'es';
 let userZip = "";
 
-async function getGeo() {
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      try {
-        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=${currentLang}`);
-        const data = await r.json();
-        userZip = data.postcode || "";
-        document.getElementById('geo-txt').innerText = userZip ? `Ubicación: ZIP ${userZip}` : "Ubicación: USA";
-      } catch { document.getElementById('geo-txt').innerText = "Ubicación detectada."; }
-    });
-  }
-}
-
-window.onload = getGeo;
-
-async function getEstimate() {
-  const q = document.getElementById('q').value.trim();
-  const resDiv = document.getElementById('res');
-  resDiv.style.display='block';
-  resDiv.innerHTML = "<h2 class='yellow'>Aura procesando reporte 3-3-5-1...</h2>";
-
-  const fd = new FormData();
-  fd.append("consulta", q);
-  fd.append("lang", currentLang);
-  fd.append("zip_user", userZip);
-
-  try {
-    const r = await fetch("/estimado", {method:"POST", body:fd});
-    const d = await r.json();
-    resDiv.innerHTML = d.resultado;
-   
-    // Mostrar Mapa y Botones
-    const mapLink = document.getElementById('map-link');
-    mapLink.href = `https://www.google.com/maps/search/${encodeURIComponent(q)}+near+${userZip}`;
-    mapLink.style.display = 'block';
-    document.getElementById('export-bar').style.display='block';
-    document.getElementById('doubt-section').style.display='block';
-  } catch { resDiv.innerText = "Error consultando a Aura."; }
-}
-
-async function askAura() {
-  const q = document.getElementById('doubt-q').value;
-  const ctx = document.getElementById('res').innerText;
-  const dRes = document.getElementById('doubt-res');
-  dRes.innerText = "Aura respondiendo...";
-  const fd = new FormData();
-  fd.append("pregunta", q);
-  fd.append("contexto", ctx);
-  const r = await fetch("/aclarar-duda", {method:"POST", body:fd});
-  const d = await r.json();
-  dRes.innerHTML = "<strong>Respuesta:</strong> " + d.resultado;
-}
-
-async function loginAdmin(){
+async function loginAdmin() {
   const fd = new FormData();
   fd.append("user", document.getElementById('admin-user').value);
   fd.append("pw", document.getElementById('admin-pass').value);
   const r = await fetch("/login-admin", {method:"POST", body:fd});
-  if(r.ok){
+  if(r.ok) {
     document.getElementById('paywall').style.display='none';
     document.getElementById('sistema-aura').style.display='block';
   } else { alert("Error de acceso."); }
 }
 
-function changeLang(l){ currentLang = l; alert("Idioma: " + l); }
+async function pagar(plan) {
+  const fd = new FormData();
+  fd.append("plan", plan);
+  const r = await fetch("/create-checkout-session", {method:"POST", body:fd});
+  const data = await r.json();
+  if(data.url) window.location.href = data.url;
+}
+
+async function getEstimate() {
+  const q = document.getElementById('q').value;
+  const resDiv = document.getElementById('res');
+  resDiv.style.display='block';
+  resDiv.innerHTML = "<h2 class='yellow'>Procesando reporte 3-3-5-1...</h2>";
+  
+  const fd = new FormData();
+  fd.append("consulta", q);
+  fd.append("lang", currentLang);
+  fd.append("zip_user", userZip);
+
+  const r = await fetch("/estimado", {method:"POST", body:fd});
+  const d = await r.json();
+  resDiv.innerHTML = d.resultado;
+  document.getElementById('export-bar').style.display='block';
+}
+
 function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); window.speechSynthesis.speak(ut); }
-function exportPDF(){ window.print(); }
-function pagar(p){ if(p==='donacion') window.location.href="https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"; }
 </script>
 </body>
 </html>
