@@ -1,17 +1,14 @@
 # ==============================
 # AURA by May Roga LLC
-# main.py — PRODUCCIÓN DEFINITIVA
+# main.py — Estimados educativos sin DB
 # ==============================
 
 import os
-import sqlite3
 import stripe
 from datetime import datetime
-
 from fastapi import FastAPI, Form
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-
 import openai
 from dotenv import load_dotenv
 
@@ -19,9 +16,7 @@ from dotenv import load_dotenv
 # CARGA ENV
 # ==============================
 load_dotenv()
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "aura_brain.db")
 
 app = FastAPI(title="AURA by May Roga LLC")
 
@@ -52,8 +47,6 @@ LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 # IA
 # ==============================
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# Gemini ES OPCIONAL
 client_gemini = None
 gemini_key = os.getenv("GEMINI_API_KEY")
 
@@ -66,154 +59,131 @@ if gemini_key:
         print(f"[WARN] Gemini deshabilitado: {e}")
 
 # ==============================
-# DB
-# ==============================
-def get_conn():
-    return sqlite3.connect(DB_PATH)
-
-def query_prices(term, zip_user=None):
-    """
-    Consulta educativa interna (si existe).
-    Si no hay datos → devuelve vacío (NO error).
-    """
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-
-        like = f"%{term}%"
-        cur.execute("""
-            SELECT description, cpt_code, low_price, high_price, state, zip_code, county
-            FROM prices
-            WHERE description LIKE ? OR cpt_code LIKE ?
-            ORDER BY low_price ASC
-            LIMIT 20
-        """, (like, like))
-
-        rows = cur.fetchall()
-        conn.close()
-
-        return rows if rows else []
-
-    except Exception:
-        return []
-
-# ==============================
 # INDEX
 # ==============================
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    with open(os.path.join(BASE_DIR, "index.html"), encoding="utf-8") as f:
-        return f.read()
-
-# ==============================
-# FORMATEO TABLA OSCURA
-# ==============================
-def generar_tabla_html(tablas):
-    html = """
+    return """
     <html>
-    <head>
-    <style>
-    body { background-color: #121212; color: #eee; font-family: 'Segoe UI', sans-serif; }
-    table { width: 90%; margin: 15px auto; border-collapse: collapse; }
-    th, td { border: 1px solid #444; padding: 8px; text-align: center; }
-    th { background-color: #1f1f1f; }
-    tr:nth-child(even) { background-color: #1a1a1a; }
-    tr:nth-child(odd) { background-color: #141414; }
-    h2 { text-align: center; color: #00d4ff; }
-    </style>
-    </head>
-    <body>
+    <head><title>AURA by May Roga LLC</title></head>
+    <body style="background-color:#0d1117;color:#c9d1d9;font-family:sans-serif;text-align:center;">
+    <h1>AURA — Estimados Educativos</h1>
+    <p>Use el endpoint /estimado para obtener precios educativos en USA.</p>
+    </body>
+    </html>
     """
-    for nivel in ['local','county','state','national']:
-        if nivel in tablas and tablas[nivel]:
-            nivel_nombre = {
-                "local":"Local (ZIP)",
-                "county":"Condado",
-                "state":"Estado",
-                "national":"Nacional"
-            }[nivel]
-            html += f"<h2>{nivel_nombre}</h2>"
-            html += "<table><tr><th>Procedimiento</th><th>CPT</th><th>Cash Bajo</th><th>Cash Alto</th>"
-            html += "<th>Seguro Bajo</th><th>Seguro Alto</th><th>Copago Bajo</th><th>Copago Alto</th>"
-            html += "<th>Ahorro Seguro</th><th>Ahorro Copago</th><th>Estado</th><th>Condado</th><th>ZIP</th></tr>"
-            for item in tablas[nivel]:
-                html += f"<tr><td>{item['description']}</td><td>{item['code']}</td>"
-                html += f"<td>${item['cash_low']}</td><td>${item['cash_high']}</td>"
-                html += f"<td>${item['insured_low']}</td><td>${item['insured_high']}</td>"
-                html += f"<td>${item['copay_low']}</td><td>${item['copay_high']}</td>"
-                html += f"<td>${item['ahorro_seguro']}</td><td>${item['ahorro_copago']}</td>"
-                html += f"<td>{item['state']}</td><td>{item['county']}</td><td>{item['zip_code']}</td></tr>"
-            html += "</table>"
-    html += "</body></html>"
-    return html
 
 # ==============================
-# ESTIMADO PRINCIPAL (NUNCA FALLA)
+# ESTIMADO PRINCIPAL
 # ==============================
 @app.post("/estimado", response_class=HTMLResponse)
 async def estimado(
     consulta: str = Form(...),
     lang: str = Form("es"),
-    zip_user: str = Form(None),
+    zip_user: str = Form(None)
 ):
+    idiomas = {"es":"Español","en":"English","ht":"Haitian Creole"}
+    idioma = idiomas.get(lang,"Español")
 
-    datos_locales = query_prices(consulta, zip_user)
+    prompt = f"""
+ERES **AURA**, CEREBRO DE ESTIMADOS EDUCATIVOS DE MAY ROGA LLC.
+IDIOMA: {idioma}
+CONSULTA DEL CLIENTE: {consulta}
+ZIP USUARIO: {zip_user}
 
-    # ==============================
-    # GENERAR TABLAS DE RESULTADOS
-    # ==============================
-    # Local
-    tablas = {"local": [], "county": [], "state": [], "national": []}
-    if datos_locales:
-        # Local ZIP
-        local = sorted([d for d in datos_locales if d[5]==zip_user], key=lambda x:x[2])[:3]
-        tablas['local'] = [{
-            "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
-            "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
-            "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
-            "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
-            "state": d[4], "county": d[6], "zip_code": d[5]
-        } for d in local]
+INSTRUCCIONES:
+1. Genera estimados educativos de precios médicos/dentales.
+2. Muestra comparaciones por ZIP, Condado, Estado y Nacional.
+3. Incluye precios: Cash, Seguro, Copago.
+4. Calcula ahorro estimado en dólares (no porcentaje).
+5. Incluye nombres de ZIP, Condado y Estado.
+6. Muestra tabla HTML legible con fondo oscuro y letras claras.
+7. No menciones AMA, ADA ni CMS, solo di "educativo".
+8. Mantén un tono protector del consumidor.
 
-        # Condado
-        if tablas['local']:
-            county_name = tablas['local'][0]['county']
-            county = sorted([d for d in datos_locales if d[6]==county_name], key=lambda x:x[2])[:3]
-            tablas['county'] = [{
-                "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
-                "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
-                "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
-                "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
-                "state": d[4], "county": d[6], "zip_code": d[5]
-            } for d in county]
-
-        # Estado
-        if tablas['local']:
-            state_name = tablas['local'][0]['state']
-            state = sorted([d for d in datos_locales if d[4]==state_name], key=lambda x:x[2])[:3]
-            tablas['state'] = [{
-                "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
-                "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
-                "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
-                "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
-                "state": d[4], "county": d[6], "zip_code": d[5]
-            } for d in state]
-
-        # Nacional
-        nacional = sorted(datos_locales, key=lambda x:x[2])[:5]
-        tablas['national'] = [{
-            "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
-            "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
-            "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
-            "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
-            "state": d[4], "county": d[6], "zip_code": d[5]
-        } for d in nacional]
+BLINDAJE LEGAL:
+Este es un estimado educativo.
+No somos médicos ni aseguradoras.
+El precio final lo determina el proveedor.
+"""
 
     # ==============================
-    # GENERAR HTML
+    # MOTOR IA: Gemini -> OpenAI
     # ==============================
-    html_result = generar_tabla_html(tablas)
-    return HTMLResponse(content=html_result)
+    resultado_text = ""
+    if client_gemini:
+        try:
+            r = client_gemini.models.generate_content(
+                model="gemini-1.5-pro",
+                contents=prompt
+            )
+            resultado_text = r.text
+        except Exception as e:
+            print(f"[WARN] Gemini falló: {e}")
+
+    if not resultado_text:
+        try:
+            r = openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role":"user","content":prompt}],
+                temperature=0.35
+            )
+            resultado_text = r.choices[0].message.content
+        except Exception as e:
+            resultado_text = f"""
+⚠️ Estimado educativo generado de forma general:
+Procedimiento: {consulta}
+Rango típico USA:
+- Bajo: $XXX
+- Medio: $XXX
+- Alto: $XXX
+Este es un estimado educativo.
+"""
+
+    # ==============================
+    # ENVOLVER EN HTML OSCURO
+    # ==============================
+    html = f"""
+    <html>
+    <head>
+    <title>Estimado AURA</title>
+    <style>
+    body {{
+        background-color: #0d1117;
+        color: #c9d1d9;
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }}
+    table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }}
+    th, td {{
+        border: 1px solid #30363d;
+        padding: 8px;
+        text-align: left;
+    }}
+    th {{
+        background-color: #21262d;
+        color: #f0f6fc;
+    }}
+    tr:nth-child(even) {{
+        background-color: #161b22;
+    }}
+    tr:hover {{
+        background-color: #30363d;
+    }}
+    </style>
+    </head>
+    <body>
+    <h2>Estimado educativo — {consulta}</h2>
+    <p>Idioma: {idioma} | ZIP: {zip_user}</p>
+    <div>{resultado_text}</div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 # ==============================
 # STRIPE CHECKOUT
@@ -243,8 +213,6 @@ async def checkout(plan: str = Form(...)):
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
     ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin")
-
     if user == ADMIN_USER and pw == ADMIN_PASS:
         return {"status": "success"}
-
     return JSONResponse(status_code=401, content={"status": "denied"})
