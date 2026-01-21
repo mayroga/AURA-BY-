@@ -6,11 +6,12 @@
 import os
 import sqlite3
 import stripe
-import pandas as pd
-import random
+from datetime import datetime
+
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 import openai
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ from dotenv import load_dotenv
 # CARGA ENV
 # ==============================
 load_dotenv()
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "aura_brain.db")
 
@@ -43,235 +45,57 @@ PRICE_IDS = {
     "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
     "special": "price_1SnatfBOA5mT4t0PZouWzfpw",
 }
+
 LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 
 # ==============================
-# OPENAI / GEMINI
+# IA
 # ==============================
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Gemini ES OPCIONAL
 client_gemini = None
 gemini_key = os.getenv("GEMINI_API_KEY")
+
 if gemini_key:
     try:
         from google import genai
         client_gemini = genai.Client(api_key=gemini_key)
-    except:
-        client_gemini = None
+        print("✔ Gemini disponible")
+    except Exception as e:
+        print(f"[WARN] Gemini deshabilitado: {e}")
 
 # ==============================
-# DB UTILITIES
+# DB
 # ==============================
 def get_conn():
     return sqlite3.connect(DB_PATH)
 
-# ==============================
-# INICIALIZAR DB
-# ==============================
-def init_db():
-    conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS prices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT,
-            code TEXT,
-            cash_price_low REAL,
-            cash_price_high REAL,
-            insured_price_low REAL,
-            insured_price_high REAL,
-            copay_low REAL,
-            copay_high REAL,
-            state TEXT,
-            zip_code TEXT,
-            county TEXT,
-            provider_type TEXT
-        )
-    """)
-    conn.commit()
-
-    cursor.execute("SELECT COUNT(*) FROM prices")
-    count = cursor.fetchone()[0]
-    if count == 0:
-        estados = ["FL","NY","CA","TX","IL","PA","OH","GA","NC","MI"]
-        counties = ["Miami-Dade","New York","Los Angeles","Harris","Cook","Philadelphia","Cuyahoga","Fulton","Mecklenburg","Wayne"]
-        zip_codes = ["33160","10001","90001","77001","60601","19101","44101","30301","28201","48201"]
-        procedimientos = [
-            ("Consulta médica general","99213","Médico"),
-            ("Evaluación anual preventiva","99396","Médico"),
-            ("Ecografía abdominal","76700","Médico"),
-            ("Resonancia magnética (MRI)","70551","Médico"),
-            ("Consulta especializada cardiología","99243","Médico"),
-            ("Limpieza dental rutinaria","D1110","Dental"),
-            ("Radiografía bitewing","D0274","Dental"),
-            ("Empaste simple resina","D2330","Dental"),
-            ("Extracción dental simple","D7140","Dental"),
-            ("Endodoncia molar","D3330","Dental")
-        ]
-        datos = []
-        for _ in range(200):
-            desc, code, prov_type = random.choice(procedimientos)
-            state = random.choice(estados)
-            county = random.choice(counties)
-            zipc = random.choice(zip_codes)
-            cash_low = random.randint(50,500)
-            cash_high = cash_low + random.randint(20,200)
-            insured_low = max(cash_low - random.randint(10,50),10)
-            insured_high = max(cash_high - random.randint(10,100), insured_low)
-            copay_low = max(insured_low*0.2,5)
-            copay_high = max(insured_high*0.3,10)
-            datos.append((desc, code, cash_low, cash_high, insured_low, insured_high, copay_low, copay_high, state, zipc, county, prov_type))
-        cursor.executemany("""
-            INSERT INTO prices (
-                description, code, cash_price_low, cash_price_high,
-                insured_price_low, insured_price_high,
-                copay_low, copay_high,
-                state, zip_code, county, provider_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, datos)
-        conn.commit()
-    conn.close()
-
-# ==============================
-# ASEGURAR DB
-# ==============================
-def ensure_db_ready():
-    if not os.path.exists(DB_PATH):
-        init_db()
-    else:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prices'")
-        if not cur.fetchone():
-            init_db()
-        conn.close()
-
-ensure_db_ready()
-
-# ==============================
-# FUNCION CEREBRO DE ESTIMADO
-# ==============================
-def estimado_cerebro(consulta, zip_user=None):
+def query_prices(term, zip_user=None):
+    """
+    Consulta educativa interna (si existe).
+    Si no hay datos → devuelve vacío (NO error).
+    """
     try:
         conn = get_conn()
-        df = pd.read_sql_query("SELECT * FROM prices", conn)
+        cur = conn.cursor()
+
+        like = f"%{term}%"
+        cur.execute("""
+            SELECT description, cpt_code, low_price, high_price, state, zip_code, county
+            FROM prices
+            WHERE description LIKE ? OR cpt_code LIKE ?
+            ORDER BY low_price ASC
+            LIMIT 20
+        """, (like, like))
+
+        rows = cur.fetchall()
         conn.close()
-        term = consulta.lower()
-        df_filtered = df[df['description'].str.lower().str.contains(term) | df['code'].str.contains(term)]
 
-        resultado = {}
+        return rows if rows else []
 
-        # 3 locales más baratos
-        if zip_user:
-            local = df_filtered[df_filtered['zip_code'] == zip_user]
-            resultado['local'] = local.nsmallest(3, 'cash_price_low')
-        else:
-            resultado['local'] = pd.DataFrame()
-
-        # 3 más baratos por condado
-        if zip_user and not resultado['local'].empty:
-            county_val = resultado['local']['county'].iloc[0]
-            county_df = df_filtered[df_filtered['county'] == county_val]
-            resultado['county'] = county_df.nsmallest(3,'cash_price_low')
-        else:
-            resultado['county'] = pd.DataFrame()
-
-        # 3 más baratos por estado
-        if zip_user and not resultado['local'].empty:
-            state_val = resultado['local']['state'].iloc[0]
-            state_df = df_filtered[df_filtered['state'] == state_val]
-            resultado['state'] = state_df.nsmallest(3,'cash_price_low')
-        else:
-            resultado['state'] = pd.DataFrame()
-
-        # 5 más baratos nacionales
-        resultado['national'] = df_filtered.nsmallest(5,'cash_price_low')
-
-        # ==============================
-        # CALCULO AHORROS
-        # ==============================
-        tablas = {}
-        for nivel, df_tab in resultado.items():
-            lista = []
-            for _, row in df_tab.iterrows():
-                ahorro_seguro = row['cash_price_low'] - row['insured_price_low']
-                ahorro_copago = row['cash_price_low'] - row['copay_low']
-                lista.append({
-                    "description": row['description'],
-                    "code": row['code'],
-                    "cash_low": row['cash_price_low'],
-                    "cash_high": row['cash_price_high'],
-                    "insured_low": row['insured_price_low'],
-                    "insured_high": row['insured_price_high'],
-                    "copay_low": row['copay_low'],
-                    "copay_high": row['copay_high'],
-                    "state": row['state'],
-                    "county": row['county'],
-                    "zip_code": row['zip_code'],
-                    "provider_type": row['provider_type'],
-                    "ahorro_seguro": ahorro_seguro,
-                    "ahorro_copago": ahorro_copago
-                })
-            tablas[nivel] = lista
-
-        # Si no hay datos reales, fallback educativo
-        if all([len(v)==0 for v in tablas.values()]):
-            tablas = fallback_aura_estimate(consulta)
-
-        return tablas
-    except Exception as e:
-        print(f"[WARN] Fallback AURA activado: {e}")
-        return fallback_aura_estimate(consulta)
-
-# ==============================
-# FALLBACK EDUCATIVO
-# ==============================
-def fallback_aura_estimate(consulta):
-    low = round(random.uniform(80, 300),2)
-    mid = round(low + random.uniform(20,100),2)
-    high = round(mid + random.uniform(20,100),2)
-    insured_low = round(low * 0.7,2)
-    insured_high = round(high * 0.9,2)
-    copay_low = round(insured_low * 0.25,2)
-    copay_high = round(insured_high * 0.3,2)
-
-    ejemplo = {
-        "local":[{
-            "description": consulta,
-            "cash_low": low,
-            "cash_high": high,
-            "insured_low": insured_low,
-            "insured_high": insured_high,
-            "copay_low": copay_low,
-            "copay_high": copay_high,
-            "state":"N/A",
-            "county":"N/A",
-            "zip_code":"N/A",
-            "provider_type":"Educativo",
-            "ahorro_seguro": low - insured_low,
-            "ahorro_copago": low - copay_low
-        }],
-        "county": [],
-        "state": [],
-        "national": []
-    }
-    return ejemplo
-
-# ==============================
-# ENDPOINT ESTIMADO
-# ==============================
-@app.post("/estimado")
-async def estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    tablas = estimado_cerebro(consulta, zip_user)
-    idiomas = {"es":"Español","en":"English","ht":"Haitian Creole"}
-    idioma = idiomas.get(lang,"Español")
-
-    return JSONResponse(content={
-        "idioma": idioma,
-        "consulta": consulta,
-        "zip_user": zip_user,
-        "tablas_comparativas": tablas,
-        "blinda_legal": "Este reporte es educativo. No somos médicos ni aseguradoras. Los precios son estimados."
-    })
+    except Exception:
+        return []
 
 # ==============================
 # INDEX
@@ -280,6 +104,116 @@ async def estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: 
 async def index():
     with open(os.path.join(BASE_DIR, "index.html"), encoding="utf-8") as f:
         return f.read()
+
+# ==============================
+# FORMATEO TABLA OSCURA
+# ==============================
+def generar_tabla_html(tablas):
+    html = """
+    <html>
+    <head>
+    <style>
+    body { background-color: #121212; color: #eee; font-family: 'Segoe UI', sans-serif; }
+    table { width: 90%; margin: 15px auto; border-collapse: collapse; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+    th { background-color: #1f1f1f; }
+    tr:nth-child(even) { background-color: #1a1a1a; }
+    tr:nth-child(odd) { background-color: #141414; }
+    h2 { text-align: center; color: #00d4ff; }
+    </style>
+    </head>
+    <body>
+    """
+    for nivel in ['local','county','state','national']:
+        if nivel in tablas and tablas[nivel]:
+            nivel_nombre = {
+                "local":"Local (ZIP)",
+                "county":"Condado",
+                "state":"Estado",
+                "national":"Nacional"
+            }[nivel]
+            html += f"<h2>{nivel_nombre}</h2>"
+            html += "<table><tr><th>Procedimiento</th><th>CPT</th><th>Cash Bajo</th><th>Cash Alto</th>"
+            html += "<th>Seguro Bajo</th><th>Seguro Alto</th><th>Copago Bajo</th><th>Copago Alto</th>"
+            html += "<th>Ahorro Seguro</th><th>Ahorro Copago</th><th>Estado</th><th>Condado</th><th>ZIP</th></tr>"
+            for item in tablas[nivel]:
+                html += f"<tr><td>{item['description']}</td><td>{item['code']}</td>"
+                html += f"<td>${item['cash_low']}</td><td>${item['cash_high']}</td>"
+                html += f"<td>${item['insured_low']}</td><td>${item['insured_high']}</td>"
+                html += f"<td>${item['copay_low']}</td><td>${item['copay_high']}</td>"
+                html += f"<td>${item['ahorro_seguro']}</td><td>${item['ahorro_copago']}</td>"
+                html += f"<td>{item['state']}</td><td>{item['county']}</td><td>{item['zip_code']}</td></tr>"
+            html += "</table>"
+    html += "</body></html>"
+    return html
+
+# ==============================
+# ESTIMADO PRINCIPAL (NUNCA FALLA)
+# ==============================
+@app.post("/estimado", response_class=HTMLResponse)
+async def estimado(
+    consulta: str = Form(...),
+    lang: str = Form("es"),
+    zip_user: str = Form(None),
+):
+
+    datos_locales = query_prices(consulta, zip_user)
+
+    # ==============================
+    # GENERAR TABLAS DE RESULTADOS
+    # ==============================
+    # Local
+    tablas = {"local": [], "county": [], "state": [], "national": []}
+    if datos_locales:
+        # Local ZIP
+        local = sorted([d for d in datos_locales if d[5]==zip_user], key=lambda x:x[2])[:3]
+        tablas['local'] = [{
+            "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
+            "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
+            "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
+            "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
+            "state": d[4], "county": d[6], "zip_code": d[5]
+        } for d in local]
+
+        # Condado
+        if tablas['local']:
+            county_name = tablas['local'][0]['county']
+            county = sorted([d for d in datos_locales if d[6]==county_name], key=lambda x:x[2])[:3]
+            tablas['county'] = [{
+                "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
+                "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
+                "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
+                "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
+                "state": d[4], "county": d[6], "zip_code": d[5]
+            } for d in county]
+
+        # Estado
+        if tablas['local']:
+            state_name = tablas['local'][0]['state']
+            state = sorted([d for d in datos_locales if d[4]==state_name], key=lambda x:x[2])[:3]
+            tablas['state'] = [{
+                "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
+                "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
+                "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
+                "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
+                "state": d[4], "county": d[6], "zip_code": d[5]
+            } for d in state]
+
+        # Nacional
+        nacional = sorted(datos_locales, key=lambda x:x[2])[:5]
+        tablas['national'] = [{
+            "description": d[0], "code": d[1], "cash_low": d[2], "cash_high": d[3],
+            "insured_low": d[2]*0.8, "insured_high": d[3]*0.85,
+            "copay_low": d[2]*0.2, "copay_high": d[3]*0.25,
+            "ahorro_seguro": d[2]-d[2]*0.8, "ahorro_copago": d[2]-d[2]*0.2,
+            "state": d[4], "county": d[6], "zip_code": d[5]
+        } for d in nacional]
+
+    # ==============================
+    # GENERAR HTML
+    # ==============================
+    html_result = generar_tabla_html(tablas)
+    return HTMLResponse(content=html_result)
 
 # ==============================
 # STRIPE CHECKOUT
@@ -307,8 +241,10 @@ async def checkout(plan: str = Form(...)):
 # ==============================
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    ADMIN_USER = os.getenv("ADMIN_USERNAME","admin")
-    ADMIN_PASS = os.getenv("ADMIN_PASSWORD","admin")
+    ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "admin")
+
     if user == ADMIN_USER and pw == ADMIN_PASS:
-        return {"status":"success"}
-    return JSONResponse(status_code=401, content={"status":"denied"})
+        return {"status": "success"}
+
+    return JSONResponse(status_code=401, content={"status": "denied"})
