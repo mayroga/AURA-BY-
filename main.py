@@ -1,28 +1,23 @@
 # ==============================
 # AURA by May Roga LLC
-# main.py — Estimados educativos sin DB
+# main.py — ESTIMADOS SOLO IA
 # ==============================
 
 import os
-import stripe
-from datetime import datetime
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
+import stripe
 from dotenv import load_dotenv
 
 # ==============================
 # CARGA ENV
 # ==============================
 load_dotenv()
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="AURA by May Roga LLC")
 
-# ==============================
-# CORS
-# ==============================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,7 +44,6 @@ LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 client_gemini = None
 gemini_key = os.getenv("GEMINI_API_KEY")
-
 if gemini_key:
     try:
         from google import genai
@@ -65,10 +59,12 @@ if gemini_key:
 async def index():
     return """
     <html>
-    <head><title>AURA by May Roga LLC</title></head>
-    <body style="background-color:#0d1117;color:#c9d1d9;font-family:sans-serif;text-align:center;">
-    <h1>AURA — Estimados Educativos</h1>
-    <p>Use el endpoint /estimado para obtener precios educativos en USA.</p>
+    <head>
+    <title>AURA by May Roga LLC</title>
+    </head>
+    <body style="background:#111;color:#fff;font-family:Arial,sans-serif;text-align:center;">
+        <h1>AURA — Estimados de Precios Médicos y Dentales</h1>
+        <p>Ingrese su consulta y ZIP para obtener estimados educativos.</p>
     </body>
     </html>
     """
@@ -76,114 +72,88 @@ async def index():
 # ==============================
 # ESTIMADO PRINCIPAL
 # ==============================
-@app.post("/estimado", response_class=HTMLResponse)
+@app.post("/estimado")
 async def estimado(
     consulta: str = Form(...),
-    lang: str = Form("es"),
-    zip_user: str = Form(None)
+    zip_user: str = Form(None),
+    lang: str = Form("es")
 ):
-    idiomas = {"es":"Español","en":"English","ht":"Haitian Creole"}
-    idioma = idiomas.get(lang,"Español")
+    idiomas = {"es": "Español", "en": "English", "ht": "Haitian Creole"}
+    idioma = idiomas.get(lang, "Español")
 
     prompt = f"""
-ERES **AURA**, CEREBRO DE ESTIMADOS EDUCATIVOS DE MAY ROGA LLC.
+ERES **AURA**, EL CEREBRO DE ESTIMADOS EDUCATIVOS DE MAY ROGA LLC.
+
 IDIOMA: {idioma}
 CONSULTA DEL CLIENTE: {consulta}
-ZIP USUARIO: {zip_user}
+UBICACIÓN (ZIP): {zip_user}
 
-INSTRUCCIONES:
-1. Genera estimados educativos de precios médicos/dentales.
-2. Muestra comparaciones por ZIP, Condado, Estado y Nacional.
-3. Incluye precios: Cash, Seguro, Copago.
-4. Calcula ahorro estimado en dólares (no porcentaje).
-5. Incluye nombres de ZIP, Condado y Estado.
-6. Muestra tabla HTML legible con fondo oscuro y letras claras.
-7. No menciones AMA, ADA ni CMS, solo di "educativo".
-8. Mantén un tono protector del consumidor.
+INSTRUCCIONES CRÍTICAS:
+1. Genera un ESTIMADO EDUCATIVO de precios de procedimientos médicos y dentales.
+2. Incluye comparaciones:
+   - Precio CASH
+   - Precio con SEGURO (estimado típico)
+   - Copago (si aplica)
+   - Ahorro estimado en USD (no porcentaje)
+   - Posible ahorro viajando a otro condado o estado (incluir ZIP, condado y nombre del estado)
+3. Presenta los 3 lugares más baratos: local, condado, estado y 5 más baratos a nivel nacional.
+4. Indica claramente ZIP, condado y nombre del estado.
+5. Haz la tabla oscura con letras legibles (negro #111 fondo, blanco #fff texto, azul #0cf cabeceras)
+6. Mantén el contenido educativo, NO menciones de dónde se tomaron los datos.
+7. Tono experto y protector del consumidor.
+8. Incluye también el tiempo del servicio y el precio según plan:
+   - Rápido $5.99 → 7 min
+   - Standard $9.99 → 12 min
+   - Special $19.99 → suscripción
+9. Blindaje legal: Este reporte es educativo. No somos médicos ni aseguradoras.
 
-BLINDAJE LEGAL:
-Este es un estimado educativo.
-No somos médicos ni aseguradoras.
-El precio final lo determina el proveedor.
+DEVUELVE EL RESULTADO EN FORMATO HTML DE TABLA OSCURA LEGIBLE.
 """
 
     # ==============================
-    # MOTOR IA: Gemini -> OpenAI
+    # Motor de ejecución IA
     # ==============================
-    resultado_text = ""
+    # 1️⃣ Gemini si disponible
     if client_gemini:
         try:
             r = client_gemini.models.generate_content(
                 model="gemini-1.5-pro",
                 contents=prompt
             )
-            resultado_text = r.text
+            html_result = r.text
+            return HTMLResponse(content=html_result)
         except Exception as e:
             print(f"[WARN] Gemini falló: {e}")
 
-    if not resultado_text:
-        try:
-            r = openai.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role":"user","content":prompt}],
-                temperature=0.35
-            )
-            resultado_text = r.choices[0].message.content
-        except Exception as e:
-            resultado_text = f"""
-⚠️ Estimado educativo generado de forma general:
-Procedimiento: {consulta}
-Rango típico USA:
-- Bajo: $XXX
-- Medio: $XXX
-- Alto: $XXX
-Este es un estimado educativo.
-"""
-
-    # ==============================
-    # ENVOLVER EN HTML OSCURO
-    # ==============================
-    html = f"""
-    <html>
-    <head>
-    <title>Estimado AURA</title>
-    <style>
-    body {{
-        background-color: #0d1117;
-        color: #c9d1d9;
-        font-family: Arial, sans-serif;
-        padding: 20px;
-    }}
-    table {{
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-    }}
-    th, td {{
-        border: 1px solid #30363d;
-        padding: 8px;
-        text-align: left;
-    }}
-    th {{
-        background-color: #21262d;
-        color: #f0f6fc;
-    }}
-    tr:nth-child(even) {{
-        background-color: #161b22;
-    }}
-    tr:hover {{
-        background-color: #30363d;
-    }}
-    </style>
-    </head>
-    <body>
-    <h2>Estimado educativo — {consulta}</h2>
-    <p>Idioma: {idioma} | ZIP: {zip_user}</p>
-    <div>{resultado_text}</div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+    # 2️⃣ OpenAI fallback
+    try:
+        r = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.35,
+        )
+        html_result = r.choices[0].message.content
+        return HTMLResponse(content=html_result)
+    except Exception as e:
+        fallback_html = f"""
+        <html>
+        <body style='background:#111;color:#fff;font-family:Arial,sans-serif;'>
+            <h2>Estimado General Educativo</h2>
+            <p>Procedimiento: {consulta}</p>
+            <table border="1" cellpadding="5" style="width:100%;color:#fff;background:#111;">
+                <tr style="background:#0cf;color:#000;">
+                    <th>Ubicación</th><th>ZIP</th><th>Condado</th><th>Estado</th><th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th>
+                </tr>
+                <tr><td>Local</td><td>{zip_user}</td><td>---</td><td>---</td><td>$XXX</td><td>$XXX</td><td>$XXX</td><td>$XXX</td></tr>
+                <tr><td>Condado</td><td>---</td><td>---</td><td>---</td><td>$XXX</td><td>$XXX</td><td>$XXX</td><td>$XXX</td></tr>
+                <tr><td>Estado</td><td>---</td><td>---</td><td>---</td><td>$XXX</td><td>$XXX</td><td>$XXX</td><td>$XXX</td></tr>
+                <tr><td>Nacional</td><td>---</td><td>---</td><td>---</td><td>$XXX</td><td>$XXX</td><td>$XXX</td><td>$XXX</td></tr>
+            </table>
+            <p>Este es un estimado educativo.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=fallback_html)
 
 # ==============================
 # STRIPE CHECKOUT
