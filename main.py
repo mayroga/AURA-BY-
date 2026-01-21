@@ -7,13 +7,12 @@ import os
 import sqlite3
 import stripe
 import pandas as pd
-from datetime import datetime
+import random
 from fastapi import FastAPI, Form
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 from dotenv import load_dotenv
-import random
 
 # ==============================
 # CARGA ENV
@@ -47,7 +46,7 @@ PRICE_IDS = {
 LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
 
 # ==============================
-# OPENAI
+# OPENAI / GEMINI
 # ==============================
 openai.api_key = os.getenv("OPENAI_API_KEY")
 client_gemini = None
@@ -66,7 +65,7 @@ def get_conn():
     return sqlite3.connect(DB_PATH)
 
 # ==============================
-# INICIALIZAR BASE DE DATOS CON DATOS EDUCATIVOS
+# INICIALIZAR DB
 # ==============================
 def init_db():
     conn = get_conn()
@@ -90,7 +89,6 @@ def init_db():
     """)
     conn.commit()
 
-    # Si la tabla está vacía, llenarla con datos educativos de ejemplo
     cursor.execute("SELECT COUNT(*) FROM prices")
     count = cursor.fetchone()[0]
     if count == 0:
@@ -133,86 +131,137 @@ def init_db():
         conn.commit()
     conn.close()
 
-init_db()
+# ==============================
+# ASEGURAR DB
+# ==============================
+def ensure_db_ready():
+    if not os.path.exists(DB_PATH):
+        init_db()
+    else:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prices'")
+        if not cur.fetchone():
+            init_db()
+        conn.close()
+
+ensure_db_ready()
 
 # ==============================
 # FUNCION CEREBRO DE ESTIMADO
 # ==============================
 def estimado_cerebro(consulta, zip_user=None):
-    conn = get_conn()
-    df = pd.read_sql_query("SELECT * FROM prices", conn)
-    conn.close()
-    term = consulta.lower()
-    df_filtered = df[df['description'].str.lower().str.contains(term) | df['code'].str.contains(term)]
-    
-    resultado = {}
+    try:
+        conn = get_conn()
+        df = pd.read_sql_query("SELECT * FROM prices", conn)
+        conn.close()
+        term = consulta.lower()
+        df_filtered = df[df['description'].str.lower().str.contains(term) | df['code'].str.contains(term)]
 
-    # 3 locales más baratos
-    if zip_user:
-        local = df_filtered[df_filtered['zip_code'] == zip_user]
-        resultado['local'] = local.nsmallest(3, 'cash_price_low')
-    else:
-        resultado['local'] = pd.DataFrame()
+        resultado = {}
 
-    # 3 más baratos por condado
-    if zip_user and not resultado['local'].empty:
-        county_val = resultado['local']['county'].iloc[0]
-        county_df = df_filtered[df_filtered['county'] == county_val]
-        resultado['county'] = county_df.nsmallest(3,'cash_price_low')
-    else:
-        resultado['county'] = pd.DataFrame()
+        # 3 locales más baratos
+        if zip_user:
+            local = df_filtered[df_filtered['zip_code'] == zip_user]
+            resultado['local'] = local.nsmallest(3, 'cash_price_low')
+        else:
+            resultado['local'] = pd.DataFrame()
 
-    # 3 más baratos por estado
-    if zip_user and not resultado['local'].empty:
-        state_val = resultado['local']['state'].iloc[0]
-        state_df = df_filtered[df_filtered['state'] == state_val]
-        resultado['state'] = state_df.nsmallest(3,'cash_price_low')
-    else:
-        resultado['state'] = pd.DataFrame()
+        # 3 más baratos por condado
+        if zip_user and not resultado['local'].empty:
+            county_val = resultado['local']['county'].iloc[0]
+            county_df = df_filtered[df_filtered['county'] == county_val]
+            resultado['county'] = county_df.nsmallest(3,'cash_price_low')
+        else:
+            resultado['county'] = pd.DataFrame()
 
-    # 5 más baratos nacionales
-    resultado['national'] = df_filtered.nsmallest(5,'cash_price_low')
+        # 3 más baratos por estado
+        if zip_user and not resultado['local'].empty:
+            state_val = resultado['local']['state'].iloc[0]
+            state_df = df_filtered[df_filtered['state'] == state_val]
+            resultado['state'] = state_df.nsmallest(3,'cash_price_low')
+        else:
+            resultado['state'] = pd.DataFrame()
 
-    # ==============================
-    # CALCULO AHORROS (Cash vs Seguro vs Copago)
-    # ==============================
-    tablas = {}
-    for nivel, df_tab in resultado.items():
-        lista = []
-        for _, row in df_tab.iterrows():
-            ahorro_seguro = row['cash_price_low'] - row['insured_price_low']
-            ahorro_copago = row['cash_price_low'] - row['copay_low']
-            lista.append({
-                "description": row['description'],
-                "code": row['code'],
-                "cash_low": row['cash_price_low'],
-                "cash_high": row['cash_price_high'],
-                "insured_low": row['insured_price_low'],
-                "insured_high": row['insured_price_high'],
-                "copay_low": row['copay_low'],
-                "copay_high": row['copay_high'],
-                "state": row['state'],
-                "county": row['county'],
-                "zip_code": row['zip_code'],
-                "provider_type": row['provider_type'],
-                "ahorro_seguro": ahorro_seguro,
-                "ahorro_copago": ahorro_copago
-            })
-        tablas[nivel] = lista
+        # 5 más baratos nacionales
+        resultado['national'] = df_filtered.nsmallest(5,'cash_price_low')
 
-    return tablas
+        # ==============================
+        # CALCULO AHORROS
+        # ==============================
+        tablas = {}
+        for nivel, df_tab in resultado.items():
+            lista = []
+            for _, row in df_tab.iterrows():
+                ahorro_seguro = row['cash_price_low'] - row['insured_price_low']
+                ahorro_copago = row['cash_price_low'] - row['copay_low']
+                lista.append({
+                    "description": row['description'],
+                    "code": row['code'],
+                    "cash_low": row['cash_price_low'],
+                    "cash_high": row['cash_price_high'],
+                    "insured_low": row['insured_price_low'],
+                    "insured_high": row['insured_price_high'],
+                    "copay_low": row['copay_low'],
+                    "copay_high": row['copay_high'],
+                    "state": row['state'],
+                    "county": row['county'],
+                    "zip_code": row['zip_code'],
+                    "provider_type": row['provider_type'],
+                    "ahorro_seguro": ahorro_seguro,
+                    "ahorro_copago": ahorro_copago
+                })
+            tablas[nivel] = lista
+
+        # Si no hay datos reales, fallback educativo
+        if all([len(v)==0 for v in tablas.values()]):
+            tablas = fallback_aura_estimate(consulta)
+
+        return tablas
+    except Exception as e:
+        print(f"[WARN] Fallback AURA activado: {e}")
+        return fallback_aura_estimate(consulta)
+
+# ==============================
+# FALLBACK EDUCATIVO
+# ==============================
+def fallback_aura_estimate(consulta):
+    low = round(random.uniform(80, 300),2)
+    mid = round(low + random.uniform(20,100),2)
+    high = round(mid + random.uniform(20,100),2)
+    insured_low = round(low * 0.7,2)
+    insured_high = round(high * 0.9,2)
+    copay_low = round(insured_low * 0.25,2)
+    copay_high = round(insured_high * 0.3,2)
+
+    ejemplo = {
+        "local":[{
+            "description": consulta,
+            "cash_low": low,
+            "cash_high": high,
+            "insured_low": insured_low,
+            "insured_high": insured_high,
+            "copay_low": copay_low,
+            "copay_high": copay_high,
+            "state":"N/A",
+            "county":"N/A",
+            "zip_code":"N/A",
+            "provider_type":"Educativo",
+            "ahorro_seguro": low - insured_low,
+            "ahorro_copago": low - copay_low
+        }],
+        "county": [],
+        "state": [],
+        "national": []
+    }
+    return ejemplo
 
 # ==============================
 # ENDPOINT ESTIMADO
 # ==============================
 @app.post("/estimado")
-async def estimado(
-    consulta: str = Form(...),
-    lang: str = Form("es"),
-    zip_user: str = Form(None),
-):
+async def estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
     tablas = estimado_cerebro(consulta, zip_user)
-
     idiomas = {"es":"Español","en":"English","ht":"Haitian Creole"}
     idioma = idiomas.get(lang,"Español")
 
@@ -223,6 +272,14 @@ async def estimado(
         "tablas_comparativas": tablas,
         "blinda_legal": "Este reporte es educativo. No somos médicos ni aseguradoras. Los precios son estimados."
     })
+
+# ==============================
+# INDEX
+# ==============================
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open(os.path.join(BASE_DIR, "index.html"), encoding="utf-8") as f:
+        return f.read()
 
 # ==============================
 # STRIPE CHECKOUT
@@ -255,4 +312,3 @@ async def login_admin(user: str = Form(...), pw: str = Form(...)):
     if user == ADMIN_USER and pw == ADMIN_PASS:
         return {"status":"success"}
     return JSONResponse(status_code=401, content={"status":"denied"})
-
