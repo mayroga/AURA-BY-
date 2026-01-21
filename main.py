@@ -1,6 +1,5 @@
 # ==============================
-# AURA by May Roga LLC
-# main.py — PRODUCCIÓN DEFINITIVO
+# AURA by May Roga LLC — MAIN DEFINITIVO
 # ==============================
 
 import os
@@ -70,7 +69,7 @@ def get_conn():
     return sqlite3.connect(DB_PATH)
 
 # ==============================
-# INGESTA CMS (crudo, seguro)
+# INGESTA CMS / ADA / AMA (crudo, seguro)
 # ==============================
 def ingest_cms_data():
     conn = get_conn()
@@ -85,7 +84,11 @@ def ingest_cms_data():
             df = pd.read_csv(url)
             df.columns = [c.lower() for c in df.columns]
 
-            cols = [c for c in ["hcpcs_code", "cpt_code", "payment_amount", "state", "locality"] if c in df.columns]
+            cols = []
+            for c in ["hcpcs_code", "cpt_code", "payment_amount", "state", "locality", "zip_code"]:
+                if c in df.columns:
+                    cols.append(c)
+
             df = df[cols]
             df["source"] = source
             df["ingested_at"] = datetime.utcnow()
@@ -98,7 +101,7 @@ def ingest_cms_data():
     conn.close()
 
 # ==============================
-# CONSULTA PRECIOS (ZIP, CONDADO, ESTADO, NACIONAL)
+# CONSULTA EDUCATIVA (prices)
 # ==============================
 def query_prices(term, zip_user=None):
     conn = get_conn()
@@ -106,48 +109,47 @@ def query_prices(term, zip_user=None):
 
     like = f"%{term}%"
     cur.execute("""
-        SELECT description, cpt_code, cash_price, insurance_price, copay_price, zip_code, county, state, provider_type
+        SELECT description, cpt_code, low_price, high_price, state, zip_code, county, provider_type
         FROM prices
         WHERE description LIKE ? OR cpt_code LIKE ?
-        ORDER BY cash_price ASC
+        ORDER BY low_price ASC
         LIMIT 100
     """, (like, like))
 
     rows = cur.fetchall()
     conn.close()
 
-    local, county, state_list, national = [], [], [], []
+    local_zip, local_county, local_state, national = [], [], [], []
 
     for r in rows:
-        desc, code, cash, ins, copay, zipc, county_name, st, prov = r
+        desc, code, low, high, st, zipc, county, prov = r
         if zip_user and zipc == zip_user:
-            local.append(r)
-        elif zip_user and county_name:
-            county.append(r)
+            local_zip.append(r)
+        elif zip_user and county:
+            local_county.append(r)
         elif st:
-            state_list.append(r)
+            local_state.append(r)
         else:
             national.append(r)
 
     return {
-        "zip": local[:3],
-        "county": county[:3],
-        "state": state_list[:3],
+        "zip": local_zip[:3],
+        "county": local_county[:3],
+        "state": local_state[:3],
         "national": national[:5]
     }
 
 # ==============================
-# CONSULTA CMS (oficial)
+# CONSULTA CMS / AMA / ADA
 # ==============================
 def query_cms(code, state):
     conn = get_conn()
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount), state, locality
+        SELECT AVG(payment_amount), MIN(payment_amount), MAX(payment_amount), zip_code, locality
         FROM government_prices
-        WHERE (hcpcs_code=? OR cpt_code=?)
-        AND state=?
+        WHERE (hcpcs_code=? OR cpt_code=?) AND state=?
     """, (code, code, state))
 
     r = cur.fetchone()
@@ -160,8 +162,8 @@ def query_cms(code, state):
         "average": round(r[0], 2),
         "min": round(r[1], 2),
         "max": round(r[2], 2),
-        "state": r[3],
-        "county": r[4]
+        "zip": r[3] or "N/A",
+        "county": r[4] or "N/A"
     }
 
 # ==============================
@@ -181,13 +183,16 @@ async def estimado(
     lang: str = Form("es"),
     zip_user: str = Form(None)
 ):
+    # Ingesta CMS
     ingest_cms_data()
+
+    # Consulta educativa
     datos_prices = query_prices(consulta, zip_user)
 
     idiomas = {"es": "Español", "en": "English", "ht": "Haitian Creole"}
     idioma = idiomas.get(lang, "Español")
 
-    # Prompt maestro
+    # Prompt para la IA
     prompt = f"""
 ERES AURA, MOTOR DE ESTIMADOS DE PRECIOS MÉDICOS Y DENTALES DE MAY ROGA LLC.
 
@@ -199,24 +204,17 @@ DATOS EDUCATIVOS DE MERCADO:
 {datos_prices}
 
 INSTRUCCIONES:
-- Mostrar 3 más baratos por ZIP
-- Mostrar 3 más baratos por condado
-- Mostrar 3 más baratos por estado
-- Mostrar 5 más baratos de los 50 estados
-- Mostrar ZIP, condado, estado en todos los resultados
-- Comparar Cash vs Seguro vs Copagos
-- Mostrar ahorros exactos en números
-- Lenguaje claro y directo
-- Actuar como asesor experto en precios, seguros, legales
-- Si no hay datos exactos, generar estimados usando ADA/AMA
-
-BLINDAJE LEGAL:
-Este reporte es educativo, no médico ni cotización oficial.
-Los precios pueden variar según proveedor y seguro.
+1) Genera tablas comparativas con fondo negro y claridad.
+2) Mostrar 3 más baratos por ZIP, 3 por condado, 3 por estado y 5 a nivel nacional.
+3) Incluir ZIP, condado, estado en todas las secciones.
+4) Comparar Cash vs Seguro vs Copagos con ahorro exacto en números.
+5) Explicar posibles ahorros si viaja a otro estado.
+6) Incluir resumen final y asesor virtual de dudas legales o de seguros (sin nombres).
+7) Blindaje legal completo: estimado educativo, no diagnóstico, proveedor final define precio.
 """
 
-    # Motores IA
     motores = []
+
     if client_gemini:
         try:
             models = client_gemini.models.list().data
@@ -231,7 +229,7 @@ Los precios pueden variar según proveedor y seguro.
         try:
             if motor == "gemini":
                 r = client_gemini.models.generate_content(model=modelo, contents=prompt)
-                return HTMLResponse(content=r.text)
+                return {"resultado": r.text}
 
             if motor == "openai":
                 r = openai.chat.completions.create(
@@ -239,11 +237,11 @@ Los precios pueden variar según proveedor y seguro.
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.4,
                 )
-                return HTMLResponse(content=r.choices[0].message.content)
-        except:
+                return {"resultado": r.choices[0].message.content}
+        except Exception as e:
             continue
 
-    return HTMLResponse(content="<p>Estimado generado sin datos exactos disponibles. Se muestra información educativa.</p>")
+    return {"resultado": "Estimado generado sin datos exactos disponibles, usando datos educativos históricos."}
 
 # ==============================
 # STRIPE CHECKOUT
