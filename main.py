@@ -13,55 +13,54 @@ app = FastAPI()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# IDs de Stripe ACTUALIZADOS
 PRICE_IDS = {
-    "rapido": "price_1QisFhL8uXJ8YwO6pLp",
-    "standard": "price_1QisFhL8uXJ8YwO6pLq",
-    "special": "price_1QisFhL8uXJ8YwO6pLr",
-    "donacion": "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
+    "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
+    "standard": "price_1SnaqMBOA5mT4t0PppRG2PuE",
+    "special": "price_1SnatfBOA5mT4t0PZouWzfpw"
 }
 
-def query_aura_brain(termino, zip_user):
-    conn = sqlite3.connect('aura_brain.db')
-    cur = conn.cursor()
-    b = f"%{termino.upper()}%"
-    
-    # 3 Locales
-    cur.execute("SELECT zip_code, county, state, low_price FROM prices WHERE (description LIKE ? OR cpt_code LIKE ?) AND zip_code = ? LIMIT 3", (b, b, zip_user))
-    locales = cur.fetchall()
-    
-    # 3 Condado/Estado
-    cur.execute("SELECT zip_code, county, state, low_price FROM prices WHERE (description LIKE ? OR cpt_code LIKE ?) AND state = (SELECT state FROM prices WHERE zip_code = ? LIMIT 1) LIMIT 3", (b, b, zip_user))
-    estado = cur.fetchall()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-    # 5 Nacionales (Ahorro Máximo)
-    cur.execute("SELECT zip_code, county, state, low_price FROM prices WHERE (description LIKE ? OR cpt_code LIKE ?) ORDER BY low_price ASC LIMIT 5", (b, b))
-    nacionales = cur.fetchall()
-    
-    conn.close()
-    return {"locales": locales, "estado": estado, "nacionales": nacionales}
+def query_aura_brain(termino, zip_user):
+    try:
+        conn = sqlite3.connect('aura_brain.db')
+        cur = conn.cursor()
+        b = f"%{termino.upper()}%"
+        
+        # Búsqueda 3 Locales
+        cur.execute("SELECT description, low_price, state, zip_code FROM prices WHERE (description LIKE ? OR cpt_code LIKE ?) AND zip_code = ? LIMIT 3", (b, b, zip_user))
+        locales = cur.fetchall()
+        
+        # Búsqueda 5 Nacionales más baratos
+        cur.execute("SELECT description, low_price, state, zip_code FROM prices WHERE (description LIKE ? OR cpt_code LIKE ?) ORDER BY low_price ASC LIMIT 5", (b, b))
+        nacionales = cur.fetchall()
+        
+        conn.close()
+        return {"locales": locales, "nacionales": nacionales}
+    except: return None
 
 @app.post("/estimado")
-async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zip_user: str = Form(None)):
-    datos = query_aura_brain(consulta, zip_user)
+async def obtener_estimado(consulta: str = Form(...), lang: str = Form("en"), zip_user: str = Form(None)):
+    datos_sql = query_aura_brain(consulta, zip_user)
     
     prompt = f"""
-    ERES AURA BY MAY ROGA LLC. ASESOR PROFESIONAL DE COSTOS MÉDICOS.
-    CONVIERTE ESTOS DATOS EN TABLAS HTML LIMPIAS Y PROFESIONALES.
+    YOU ARE AURA BY MAY ROGA LLC. Professional Health Advisory Expert.
+    MANDATE: Provide a clear price comparison. Use HTML TABLES ONLY. No text blocks.
     
-    DATOS: {datos}
-    CONSULTA: {consulta} | ZIP USUARIO: {zip_user}
-
-    REGLAS DE RESPUESTA:
-    1. USA TABLAS HTML con bordes celestes.
-    2. ESTRUCTURA: 
-       - Tabla 1: "3 Opciones Locales (Zip {zip_user})"
-       - Tabla 2: "3 Opciones Regionales (Condado/Estado)"
-       - Tabla 3: "5 Opciones de Máximo Ahorro Nacional" (Muestra Zip, Condado y Estado)
-       - Sección 4: "1 Opción Premium de Referencia"
-    3. CONTENIDO: Precio Cash vs Estimado con Seguro (Usa CMS/Fair Health).
-    4. EXPLICACIONES: Ponlas fuera de la tabla en color AMARILLO.
-    5. NO uses la palabra "IA". Habla como un experto en salud.
-    6. LENGUAJE: {lang}.
+    STRUCTURE 3-3-5-1:
+    1. TABLE 1: "3 Lowest Nearby (ZIP {zip_user})". Columns: ZIP, County, State, Est. Cash Price.
+    2. TABLE 2: "3 Regional/State Savings". Columns: ZIP, County, State, Est. Cash Price.
+    3. TABLE 3: "5 National Maximum Savings". Columns: ZIP, County, State, Est. Cash Price.
+    4. HIGHLIGHT: "1 Premium/Luxury Reference Option".
+    
+    DATA SOURCE: Use SQL Data: {datos_sql}. If empty, use your internal expertise from CMS (Medicare Fee Schedule), FAIR Health, and ADA for 2026.
+    
+    LEGAL RULES: 
+    - Use terms: "Suggested Estimate", "Advisory Proposal".
+    - Never say "AI" or "Government Order".
+    - Show "Cash Price" vs "Estimated Insurance Price" (approx 30-40% of cash).
+    - Language: {lang}.
     """
 
     response = openai.chat.completions.create(
@@ -72,25 +71,24 @@ async def obtener_estimado(consulta: str = Form(...), lang: str = Form("es"), zi
     return {"resultado": response.choices[0].message.content}
 
 @app.post("/aclarar-duda")
-async def aclarar_duda(pregunta: str = Form(...)):
-    # Protocolo de Resolución de Dudas para Clientes de Pago
+async def aclarar_duda(consulta: str = Form(...), lang: str = Form("en")):
+    # PROTOCOLO DE ASESOR PARA CLIENTES DE PAGO
     prompt = f"""
-    EL CLIENTE TIENE UNA DUDA SOBRE EL REPORTE: "{pregunta}"
-    Responde como el Asesor Senior de AURA. 
-    - Sé directo.
-    - Explica por qué hay variaciones de precio entre estados.
-    - No des órdenes médicas, da sugerencias de ahorro.
-    - Tono: Altamente profesional y empático.
+    The customer has paid for professional clarification. 
+    Question: {consulta}
+    Language: {lang}
+    Response Style: Highly professional, empathetic, and advisory. Explain the difference between CPT/CDT codes, why prices vary by ZIP code, and how they can negotiate with the clinic using this report.
+    Safety: Remind them this is for educational purposes and they should show this report to their provider.
     """
     response = openai.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4
     )
-    return {"respuesta": response.choices[0].message.content}
+    return {"resultado": response.choices[0].message.content}
 
 @app.post("/create-checkout-session")
 async def create_checkout(plan: str = Form(...)):
-    if plan == "donacion": return {"url": PRICE_IDS["donacion"]}
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
         line_items=[{"price": PRICE_IDS[plan], "quantity": 1}],
