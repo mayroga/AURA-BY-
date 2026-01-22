@@ -203,9 +203,9 @@ Debajo de cada tabla se explican las opciones de ahorro, conveniencia y si convi
 <a href="https://wa.me/?text=Consulta%20educativa" target="_blank">💬 WhatsApp</a>
 <button onclick="playAudio()">🔊 Escuchar resultados</button>
 
-<script>
+<script type="text/javascript">
 function playAudio(){
-    let msg = new SpeechSynthesisUtterance(document.body.innerText);
+    var msg = new SpeechSynthesisUtterance(document.body.innerText);
     msg.rate = 0.9; // más lento y claro
     msg.pitch = 1;
     window.speechSynthesis.speak(msg);
