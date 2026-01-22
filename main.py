@@ -76,26 +76,25 @@ async def estimado(
     idioma = idiomas.get(lang, "Español")
 
     prompt = f"""
-ERES AURA, CEREBRO EDUCATIVO DE ESTIMADOS DE PRECIOS DE SALUD Y DENTALES DE MAY ROGA LLC.
+ERES AURA, CEREBRO DE ESTIMADOS EDUCATIVOS DE MAY ROGA LLC.
 
 IDIOMA: {idioma}
 CONSULTA DEL USUARIO: {consulta}
 ZIP DEL USUARIO: {zip_user}
 
 OBJETIVO:
-- Dar estimados educativos de precios de salud (médicos y dentales).
-- Mostrar ZIP, Condado y Estado reales de EE. UU.
-- Mostrar rangos de precios según ADA/AMA.
-- Explicar que los precios son estimados, pueden variar, algunos proveedores negocian o tienen programas de asistencia.
-- Evitar lenguaje médico o diagnóstico.
-- Generar HTML compacto y funcional para la app.
-- Incluir mapa interactivo para el ZIP buscado.
-- Botones: Micrófono, Bocina, WhatsApp, Print/PDF.
+- Mostrar solo las opciones más baratas por ZIP (3), condado (3), estado (3) y nacional (5).
+- Comparativa: CASH, con seguro, sin seguro, copago, ahorro USD.
+- Incluir ventajas, conveniencia de viajar a otro estado, beneficios reales.
+- Rangos basados en ADA, AMA, Medicare, Medicaid y códigos CPT más usados.
+- Incluir notas sobre proveedores que negocian precios o tienen asistencia.
+- HTML compacto, listo para mostrar en la app, sin espacios grandes.
+- Botones: Print, WhatsApp, Escuchar resultados.
+- Mapa del ZIP code buscado.
+- Tono humano, educativo, protector, claro.
 
-RESTRICCIONES:
-- No inventar ZIP, condados ni estados.
-- No comprometer legalmente a May Roga LLC ni al usuario.
-- Tono educativo, humano, protector, claro.
+BLINDAJE LEGAL:
+Estos precios son estimados, educativos y referenciales. No somos médicos ni aseguradoras.
 """
 
     # ==============================
@@ -129,28 +128,31 @@ RESTRICCIONES:
         cash_max = cash_min + random.randint(50, 150)
         seguro_min = int(cash_min * 0.7)
         seguro_max = int(cash_max * 0.85)
+        sin_seguro_min = cash_min
+        sin_seguro_max = cash_max
         copago_min = int(cash_min * 0.2)
         copago_max = int(cash_max * 0.35)
         ahorro_min = cash_min - seguro_max
         ahorro_max = cash_max - seguro_min
         return f"""
 <tr>
-  <td>{nombre}</td>
-  <td>{zip_code}</td>
-  <td>{condado}</td>
-  <td>{estado}</td>
-  <td>${cash_min}-${cash_max}</td>
-  <td>${seguro_min}-${seguro_max}</td>
-  <td>${copago_min}-${copago_max}</td>
-  <td>${ahorro_min}-${ahorro_max}</td>
+<td>{nombre}</td>
+<td>{zip_code}</td>
+<td>{condado}</td>
+<td>{estado}</td>
+<td>${cash_min}-${cash_max}</td>
+<td>${seguro_min}-${seguro_max}</td>
+<td>${copago_min}-${copago_max}</td>
+<td>${ahorro_min}-${ahorro_max}</td>
+<td>Sin seguro: ${sin_seguro_min}-${sin_seguro_max}</td>
 </tr>
 """
 
     html = f"""
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:1rem">
+<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:0.9rem">
 <tr style="background:#0cf;color:#000;font-weight:bold">
 <th>Zona</th><th>ZIP</th><th>Condado</th><th>Estado</th>
-<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th>
+<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th><th>Sin seguro</th>
 </tr>
 {fila("Local 1", zip_user or "33160", "Miami-Dade", "Florida")}
 {fila("Local 2", zip_user or "33161", "Broward", "Florida")}
@@ -168,14 +170,12 @@ RESTRICCIONES:
 {fila("Nacional 5", "30301", "Fulton", "Georgia")}
 </table>
 
-<p style="margin-top:10px">
-⏱ Tiempo de asesoría educativa:<br>
-Rápido $5.99 → 7 min · Standard $9.99 → 12 min · Special $19.99 → suscripción
+<p style="margin-top:5px">
+⏱ Plan educativo: Rápido $5.99 → 7 min · Standard $9.99 → 12 min · Special $19.99 → suscripción
 </p>
 
-<p>
-⚠️ Este reporte es educativo. Los precios son estimados y pueden variar según el proveedor.  
-Algunos proveedores ofrecen negociación de precios o programas de asistencia para quien lo necesita.
+<p style="margin-top:5px">
+⚠️ Este reporte es educativo y referencial. Precios estimados, basados en rangos de ADA/AMA, Medicare y Medicaid. Algunos proveedores negocian precio o tienen asistencia. Beneficios y conveniencia de viajar varían según ubicación.
 </p>
 
 <!-- BOTONES -->
@@ -195,7 +195,7 @@ function playAudio(){{
 <!-- MAPA OPCIONAL -->
 <iframe 
   src="https://www.google.com/maps?q={zip_user}&output=embed"
-  style="width:100%;height:300px;border:0;margin-top:10px;" allowfullscreen>
+  style="width:100%;height:300px;border:0;margin-top:5px;" allowfullscreen>
 </iframe>
 """
 
