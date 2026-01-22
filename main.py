@@ -114,11 +114,11 @@ REQUISITOS OBLIGATORIOS:
    - Print/PDF
 8. Incluir mapa opcional donde se ve la zona buscada.
 9. Tono humano, protector, claro.
-10. Respaldo implícito por AMA y ADA, pero sin mencionarlas.
-11. DEVOLVER SOLO HTML listo para mostrar en app.
+10. DEVOLVER SOLO HTML listo para mostrar en app.
 
 BLINDAJE LEGAL:
-Reporte educativo. No somos médicos ni aseguradoras.
+Reporte educativo. No somos médicos, clínicas ni aseguradoras. 
+Se proporciona solo como referencia informativa y educativa.  
 """
 
     # ==============================
