@@ -86,20 +86,22 @@ OBJETIVO:
 - Ayudar a personas sin seguro o con seguro que NO cubre.
 - Dar tranquilidad mostrando rangos reales y comparaciones.
 - Mostrar los MÁS BARATOS únicamente.
+- Mostrar rangos estimados según ADA y AMA.
+- Indicar que los proveedores pueden negociar precios o tener programas de asistencia.
 
-REQUISITOS OBLIGATORIOS:
+REQUISITOS:
 1. Mostrar solo los MÁS BARATOS en:
    - 3 locales
    - 3 por condado
    - 3 por estado
    - 5 nacionales
 2. Siempre mostrar:
-   ZIP | Condado | Estado (nombre real)
+   ZIP | Condado | Estado
 3. Comparar:
-   - Precio CASH
+   - Precio CASH (rango)
    - Precio con seguro (estimado)
-   - Copago
-   - Ahorro USD (NO porcentajes)
+   - Copago (estimado)
+   - Ahorro USD (estimado)
 4. Incluir explicación clara debajo de cada tabla.
 5. Tabla OSCURA:
    Fondo #111, texto blanco, encabezado azul #0cf
@@ -108,7 +110,7 @@ REQUISITOS OBLIGATORIOS:
    - Standard $9.99 → 12 min
    - Special $19.99 → suscripción
 7. Botones:
-   - Micrófono más largo para captura de voz
+   - Micrófono más largo
    - Bocina para escuchar resultados
    - WhatsApp
    - Print/PDF
@@ -117,8 +119,7 @@ REQUISITOS OBLIGATORIOS:
 10. DEVOLVER SOLO HTML listo para mostrar en app.
 
 BLINDAJE LEGAL:
-Reporte educativo. No somos médicos, clínicas ni aseguradoras. 
-Se proporciona solo como referencia informativa y educativa.  
+Reporte educativo. No somos médicos, clínicas ni aseguradoras.
 """
 
     # ==============================
@@ -145,46 +146,52 @@ Se proporciona solo como referencia informativa y educativa.
         print(f"[WARN] OpenAI falló: {e}")
 
     # ==============================
-    # FALLBACK LOCAL
+    # FALLBACK LOCAL — RANGOS ESTIMADOS
     # ==============================
-    def fila(nombre):
-        base = random.randint(250, 1200)
-        seguro = int(base * 0.8)
-        copago = int(base * 0.3)
-        ahorro = base - seguro
+    def fila(nombre, zip_code, condado, estado):
+        # Rangos aproximados según ADA/AMA
+        cash_min = random.randint(200, 500)
+        cash_max = cash_min + random.randint(50, 150)
+        seguro_min = int(cash_min * 0.7)
+        seguro_max = int(cash_max * 0.85)
+        copago_min = int(cash_min * 0.2)
+        copago_max = int(cash_max * 0.35)
+        ahorro_min = cash_min - seguro_max
+        ahorro_max = cash_max - seguro_min
         return f"""
         <tr>
           <td>{nombre}</td>
-          <td>{zip_user or "00000"}</td>
-          <td>Condado ejemplo</td>
-          <td>Estado ejemplo</td>
-          <td>${base}</td>
-          <td>${seguro}</td>
-          <td>${copago}</td>
-          <td>${ahorro}</td>
+          <td>{zip_code}</td>
+          <td>{condado}</td>
+          <td>{estado}</td>
+          <td>${cash_min}-${cash_max}</td>
+          <td>${seguro_min}-${seguro_max}</td>
+          <td>${copago_min}-${copago_max}</td>
+          <td>${ahorro_min}-${ahorro_max}</td>
         </tr>
         """
 
+    # Ejemplo de fallback
     html = f"""
 <table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:1rem">
 <tr style="background:#0cf;color:#000;font-weight:bold">
 <th>Zona</th><th>ZIP</th><th>Condado</th><th>Estado</th>
 <th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th>
 </tr>
-{fila("Local 1")}
-{fila("Local 2")}
-{fila("Local 3")}
-{fila("Condado 1")}
-{fila("Condado 2")}
-{fila("Condado 3")}
-{fila("Estado 1")}
-{fila("Estado 2")}
-{fila("Estado 3")}
-{fila("Nacional 1")}
-{fila("Nacional 2")}
-{fila("Nacional 3")}
-{fila("Nacional 4")}
-{fila("Nacional 5")}
+{fila("Local 1", zip_user or "33160", "Miami-Dade", "Florida")}
+{fila("Local 2", zip_user or "33161", "Broward", "Florida")}
+{fila("Local 3", zip_user or "33162", "Palm Beach", "Florida")}
+{fila("Condado 1", zip_user or "33160", "Miami-Dade", "Florida")}
+{fila("Condado 2", zip_user or "33161", "Broward", "Florida")}
+{fila("Condado 3", zip_user or "33162", "Palm Beach", "Florida")}
+{fila("Estado 1", zip_user or "33160", "Miami-Dade", "Florida")}
+{fila("Estado 2", zip_user or "33161", "Broward", "Florida")}
+{fila("Estado 3", zip_user or "33162", "Palm Beach", "Florida")}
+{fila("Nacional 1", "10001", "New York", "New York")}
+{fila("Nacional 2", "90001", "Los Angeles", "California")}
+{fila("Nacional 3", "60601", "Cook", "Illinois")}
+{fila("Nacional 4", "77001", "Harris", "Texas")}
+{fila("Nacional 5", "30301", "Fulton", "Georgia")}
 </table>
 
 <p style="margin-top:10px">
@@ -193,9 +200,10 @@ Rápido $5.99 → 7 min · Standard $9.99 → 12 min · Special $19.99 → suscr
 </p>
 
 <p>
-⚠️ Este reporte es educativo. No somos médicos ni aseguradoras.  
+⚠️ Este reporte es educativo. No somos médicos, clínicas ni aseguradoras.  
 Se muestra solo lo más barato por ZIP, condado y estado.  
-Debajo de cada tabla se explican las opciones de ahorro, conveniencia y si conviene viajar.
+Los rangos de precios son estimados y pueden variar según el proveedor.  
+Algunos proveedores pueden negociar precio o tienen programas de asistencia para quien lo necesita.
 </p>
 
 <!-- BOTONES -->
@@ -204,12 +212,12 @@ Debajo de cada tabla se explican las opciones de ahorro, conveniencia y si convi
 <button onclick="playAudio()">🔊 Escuchar resultados</button>
 
 <script type="text/javascript">
-function playAudio(){
+function playAudio(){{
     var msg = new SpeechSynthesisUtterance(document.body.innerText);
-    msg.rate = 0.9; // más lento y claro
+    msg.rate = 0.9;
     msg.pitch = 1;
     window.speechSynthesis.speak(msg);
-}
+}}
 </script>
 
 <!-- MAPA OPCIONAL -->
