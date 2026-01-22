@@ -64,7 +64,7 @@ async def index():
         return f.read()
 
 # ==============================
-# ESTIMADO (SIEMPRE RESPONDE)
+# ESTIMADO EDUCATIVO
 # ==============================
 @app.post("/estimado")
 async def estimado(
@@ -83,39 +83,46 @@ CONSULTA DEL USUARIO: {consulta}
 ZIP DEL USUARIO: {zip_user}
 
 OBJETIVO:
-- Ayudar a personas SIN seguro o con seguro que NO cubre.
+- Ayudar a personas sin seguro o con seguro que NO cubre.
 - Dar tranquilidad mostrando rangos reales y comparaciones.
+- Mostrar los MÁS BARATOS únicamente.
 
 REQUISITOS OBLIGATORIOS:
-1. Mostrar los MÁS BARATOS:
+1. Mostrar solo los MÁS BARATOS en:
    - 3 locales
    - 3 por condado
    - 3 por estado
-   - 5 nacionales (50 estados)
-2. SIEMPRE mostrar:
+   - 5 nacionales
+2. Siempre mostrar:
    ZIP | Condado | Estado (nombre real)
 3. Comparar:
    - Precio CASH
    - Precio con seguro (estimado)
    - Copago
-   - Ahorro en USD (NO porcentajes)
-4. Indicar si conviene viajar a otro condado o estado.
+   - Ahorro USD (NO porcentajes)
+4. Incluir explicación clara debajo de cada tabla.
 5. Tabla OSCURA:
-   Fondo #111, texto blanco, encabezado azul #0cf.
-6. Incluir tiempos por plan:
+   Fondo #111, texto blanco, encabezado azul #0cf
+6. Incluir tiempos por plan educativo:
    - Rápido $5.99 → 7 min
    - Standard $9.99 → 12 min
    - Special $19.99 → suscripción
-7. NO mencionar fuentes.
-8. TONO humano, claro y protector.
-9. DEVUELVE SOLO HTML (tabla + explicación).
+7. Botones:
+   - Micrófono más largo para captura de voz
+   - Bocina para escuchar resultados
+   - WhatsApp
+   - Print/PDF
+8. Incluir mapa opcional donde se ve la zona buscada.
+9. Tono humano, protector, claro.
+10. Respaldo implícito por AMA y ADA, pero sin mencionarlas.
+11. DEVOLVER SOLO HTML listo para mostrar en app.
 
 BLINDAJE LEGAL:
 Reporte educativo. No somos médicos ni aseguradoras.
 """
 
     # ==============================
-    # IA
+    # MOTOR IA
     # ==============================
     try:
         if client_gemini:
@@ -124,7 +131,6 @@ Reporte educativo. No somos médicos ni aseguradoras.
                 contents=prompt
             )
             return JSONResponse({"resultado": r.text})
-
     except Exception as e:
         print(f"[WARN] Gemini falló: {e}")
 
@@ -135,12 +141,11 @@ Reporte educativo. No somos médicos ni aseguradoras.
             temperature=0.35,
         )
         return JSONResponse({"resultado": r.choices[0].message.content})
-
     except Exception as e:
         print(f"[WARN] OpenAI falló: {e}")
 
     # ==============================
-    # FALLBACK LOCAL (NUNCA SE CAE)
+    # FALLBACK LOCAL
     # ==============================
     def fila(nombre):
         base = random.randint(250, 1200)
@@ -161,7 +166,7 @@ Reporte educativo. No somos médicos ni aseguradoras.
         """
 
     html = f"""
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff">
+<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:1rem">
 <tr style="background:#0cf;color:#000;font-weight:bold">
 <th>Zona</th><th>ZIP</th><th>Condado</th><th>Estado</th>
 <th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th>
@@ -188,14 +193,36 @@ Rápido $5.99 → 7 min · Standard $9.99 → 12 min · Special $19.99 → suscr
 </p>
 
 <p>
-⚠️ Reporte educativo. No somos médicos ni aseguradoras.
+⚠️ Este reporte es educativo. No somos médicos ni aseguradoras.  
+Se muestra solo lo más barato por ZIP, condado y estado.  
+Debajo de cada tabla se explican las opciones de ahorro, conveniencia y si conviene viajar.
 </p>
+
+<!-- BOTONES -->
+<button onclick="window.print()">🖨 Print/PDF</button>
+<a href="https://wa.me/?text=Consulta%20educativa" target="_blank">💬 WhatsApp</a>
+<button onclick="playAudio()">🔊 Escuchar resultados</button>
+
+<script>
+function playAudio(){
+    let msg = new SpeechSynthesisUtterance(document.body.innerText);
+    msg.rate = 0.9; // más lento y claro
+    msg.pitch = 1;
+    window.speechSynthesis.speak(msg);
+}
+</script>
+
+<!-- MAPA OPCIONAL -->
+<iframe 
+  src="https://www.google.com/maps?q={zip_user}&output=embed"
+  style="width:100%;height:300px;border:0;margin-top:10px;" allowfullscreen>
+</iframe>
 """
 
     return JSONResponse({"resultado": html})
 
 # ==============================
-# STRIPE
+# STRIPE CHECKOUT
 # ==============================
 @app.post("/create-checkout-session")
 async def checkout(plan: str = Form(...)):
