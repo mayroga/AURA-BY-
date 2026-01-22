@@ -76,50 +76,26 @@ async def estimado(
     idioma = idiomas.get(lang, "Español")
 
     prompt = f"""
-ERES AURA, CEREBRO DE ESTIMADOS EDUCATIVOS DE MAY ROGA LLC.
+ERES AURA, CEREBRO EDUCATIVO DE ESTIMADOS DE PRECIOS DE SALUD Y DENTALES DE MAY ROGA LLC.
 
 IDIOMA: {idioma}
 CONSULTA DEL USUARIO: {consulta}
 ZIP DEL USUARIO: {zip_user}
 
 OBJETIVO:
-- Ayudar a personas sin seguro o con seguro que NO cubre.
-- Dar tranquilidad mostrando rangos reales y comparaciones.
-- Mostrar los MÁS BARATOS únicamente.
-- Mostrar rangos estimados según ADA y AMA.
-- Indicar que los proveedores pueden negociar precios o tener programas de asistencia.
+- Dar estimados educativos de precios de salud (médicos y dentales).
+- Mostrar ZIP, Condado y Estado reales de EE. UU.
+- Mostrar rangos de precios según ADA/AMA.
+- Explicar que los precios son estimados, pueden variar, algunos proveedores negocian o tienen programas de asistencia.
+- Evitar lenguaje médico o diagnóstico.
+- Generar HTML compacto y funcional para la app.
+- Incluir mapa interactivo para el ZIP buscado.
+- Botones: Micrófono, Bocina, WhatsApp, Print/PDF.
 
-REQUISITOS:
-1. Mostrar solo los MÁS BARATOS en:
-   - 3 locales
-   - 3 por condado
-   - 3 por estado
-   - 5 nacionales
-2. Siempre mostrar:
-   ZIP | Condado | Estado
-3. Comparar:
-   - Precio CASH (rango)
-   - Precio con seguro (estimado)
-   - Copago (estimado)
-   - Ahorro USD (estimado)
-4. Incluir explicación clara debajo de cada tabla.
-5. Tabla OSCURA:
-   Fondo #111, texto blanco, encabezado azul #0cf
-6. Incluir tiempos por plan educativo:
-   - Rápido $5.99 → 7 min
-   - Standard $9.99 → 12 min
-   - Special $19.99 → suscripción
-7. Botones:
-   - Micrófono más largo
-   - Bocina para escuchar resultados
-   - WhatsApp
-   - Print/PDF
-8. Incluir mapa opcional donde se ve la zona buscada.
-9. Tono humano, protector, claro.
-10. DEVOLVER SOLO HTML listo para mostrar en app.
-
-BLINDAJE LEGAL:
-Reporte educativo. No somos médicos, clínicas ni aseguradoras.
+RESTRICCIONES:
+- No inventar ZIP, condados ni estados.
+- No comprometer legalmente a May Roga LLC ni al usuario.
+- Tono educativo, humano, protector, claro.
 """
 
     # ==============================
@@ -149,7 +125,6 @@ Reporte educativo. No somos médicos, clínicas ni aseguradoras.
     # FALLBACK LOCAL — RANGOS ESTIMADOS
     # ==============================
     def fila(nombre, zip_code, condado, estado):
-        # Rangos aproximados según ADA/AMA
         cash_min = random.randint(200, 500)
         cash_max = cash_min + random.randint(50, 150)
         seguro_min = int(cash_min * 0.7)
@@ -159,19 +134,18 @@ Reporte educativo. No somos médicos, clínicas ni aseguradoras.
         ahorro_min = cash_min - seguro_max
         ahorro_max = cash_max - seguro_min
         return f"""
-        <tr>
-          <td>{nombre}</td>
-          <td>{zip_code}</td>
-          <td>{condado}</td>
-          <td>{estado}</td>
-          <td>${cash_min}-${cash_max}</td>
-          <td>${seguro_min}-${seguro_max}</td>
-          <td>${copago_min}-${copago_max}</td>
-          <td>${ahorro_min}-${ahorro_max}</td>
-        </tr>
-        """
+<tr>
+  <td>{nombre}</td>
+  <td>{zip_code}</td>
+  <td>{condado}</td>
+  <td>{estado}</td>
+  <td>${cash_min}-${cash_max}</td>
+  <td>${seguro_min}-${seguro_max}</td>
+  <td>${copago_min}-${copago_max}</td>
+  <td>${ahorro_min}-${ahorro_max}</td>
+</tr>
+"""
 
-    # Ejemplo de fallback
     html = f"""
 <table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:1rem">
 <tr style="background:#0cf;color:#000;font-weight:bold">
@@ -200,10 +174,8 @@ Rápido $5.99 → 7 min · Standard $9.99 → 12 min · Special $19.99 → suscr
 </p>
 
 <p>
-⚠️ Este reporte es educativo. No somos médicos, clínicas ni aseguradoras.  
-Se muestra solo lo más barato por ZIP, condado y estado.  
-Los rangos de precios son estimados y pueden variar según el proveedor.  
-Algunos proveedores pueden negociar precio o tienen programas de asistencia para quien lo necesita.
+⚠️ Este reporte es educativo. Los precios son estimados y pueden variar según el proveedor.  
+Algunos proveedores ofrecen negociación de precios o programas de asistencia para quien lo necesita.
 </p>
 
 <!-- BOTONES -->
