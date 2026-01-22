@@ -88,7 +88,7 @@ OBJETIVO:
 - Incluir ventajas, conveniencia de viajar a otro estado, beneficios reales.
 - Rangos basados en ADA, AMA, Medicare, Medicaid y códigos CPT más usados.
 - Incluir notas sobre proveedores que negocian precios o tienen asistencia.
-- HTML compacto, listo para mostrar en la app, sin espacios grandes.
+- HTML compacto, listo para mostrar en la app.
 - Botones: Print, WhatsApp, Escuchar resultados.
 - Mapa del ZIP code buscado.
 - Tono humano, educativo, protector, claro.
@@ -121,7 +121,7 @@ Estos precios son estimados, educativos y referenciales. No somos médicos ni as
         print(f"[WARN] OpenAI falló: {e}")
 
     # ==============================
-    # FALLBACK LOCAL — RANGOS ESTIMADOS
+    # FALLBACK LOCAL — RANGOS ESTIMADOS EDUCATIVOS
     # ==============================
     def fila(nombre, zip_code, condado, estado):
         cash_min = random.randint(200, 500)
@@ -175,7 +175,9 @@ Estos precios son estimados, educativos y referenciales. No somos médicos ni as
 </p>
 
 <p style="margin-top:5px">
-⚠️ Este reporte es educativo y referencial. Precios estimados, basados en rangos de ADA/AMA, Medicare y Medicaid. Algunos proveedores negocian precio o tienen asistencia. Beneficios y conveniencia de viajar varían según ubicación.
+⚠️ Este reporte es educativo y referencial. Precios estimados, basados en rangos de ADA/AMA, Medicare y Medicaid.  
+Si faltan datos reales, se muestran “otros proveedores reales cercanos dentro de rangos educativos”.  
+Algunos proveedores negocian precio o tienen programas de asistencia. Beneficios y conveniencia de viajar varían según ubicación.
 </p>
 
 <!-- BOTONES -->
