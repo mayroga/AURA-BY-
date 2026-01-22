@@ -77,6 +77,8 @@
   <div id="sistema-aura" style="display:none;">
     <div id="geo-txt">📍 Detectando ubicación para precisión...</div>
     <button onclick="listen()" style="font-size:5rem; background:none; border:none; cursor:pointer;">🎤</button>
+
+    <!-- ESTIMADOS -->
     <div style="position:relative; width:85%; margin:auto;">
       <input type="text" id="q" placeholder="Procedimiento, síntoma o código (ej: MRI, D2750)">
       <button class="clear-btn" onclick="document.getElementById('q').value=''">✖ BORRAR</button>
@@ -87,6 +89,14 @@
       <button class="btn-ex" style="background:#25d366;" onclick="shareWA()">WhatsApp 🛡️</button>
       <button class="btn-ex" style="background:#ffff00; color:#000;" onclick="readOut()">🔊 Escuchar</button>
       <button class="btn-ex" style="background:#ff9500; color:#000;" onclick="exportPDF()">🖨️ PDF / Print</button>
+    </div>
+
+    <!-- PREGUNTAS PROFESIONALES -->
+    <div style="margin-top:30px;">
+      <h3 style="color:#00d4ff;">Pregúntale a AURA profesional</h3>
+      <input type="text" id="pregunta" placeholder="Escribe tu pregunta aquí">
+      <button class="btn-pay" onclick="enviarPregunta()">Enviar Pregunta</button>
+      <div id="respuesta-aura" class="res-box"></div>
     </div>
 
     <div class="legal-box">
@@ -171,6 +181,28 @@ async function getEstimate() {
   }
 }
 
+// FUNCIONES PREGUNTAS PROFESIONALES
+async function enviarPregunta() {
+  const pregunta = document.getElementById('pregunta').value.trim();
+  const contenedor = document.getElementById('respuesta-aura');
+  if(!pregunta){ alert(currentLang==='es'?"Escribe tu pregunta.":currentLang==='en'?"Write your question":"Ekri kesyon ou."); return; }
+  contenedor.style.display='block';
+  contenedor.innerHTML = currentLang==='es'? "<em>Consultando a AURA profesional...</em>" : currentLang==='en'? "<em>Consulting professional AURA...</em>":"<em>Ap konsilte AURA pwofesyonèl...</em>";
+  
+  const fd = new FormData();
+  fd.append("pregunta", pregunta);
+  fd.append("lang", currentLang);
+
+  try {
+    const res = await fetch("/ask-aura",{method:"POST",body:fd});
+    const data = await res.json();
+    contenedor.innerHTML = data.resultado;
+  } catch {
+    contenedor.innerHTML = currentLang==='es'? "Error de conexión." : currentLang==='en'? "Connection error.":"Erè koneksyon.";
+  }
+}
+
+// FUNCIONES DE PAGO
 async function pagar(plan){
   if(plan==='donacion'){ window.location.href="https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"; return; }
   const fd = new FormData();
@@ -182,6 +214,7 @@ async function pagar(plan){
   } catch { alert(currentLang==='es'? "Error al conectar con Stripe.":currentLang==='en'? "Error connecting to Stripe.":"Erè konekte ak Stripe."); }
 }
 
+// LOGIN ADMIN
 async function loginAdmin(){
   const user = document.getElementById('admin-user').value.trim();
   const pw = document.getElementById('admin-pass').value.trim();
@@ -199,6 +232,7 @@ async function loginAdmin(){
   } catch { alert(currentLang==='es'? "Error de conexión.":currentLang==='en'? "Connection error.":"Erè koneksyon."); }
 }
 
+// FUNCIONES DE EXPORTAR / VOZ
 function readOut(){ const ut = new SpeechSynthesisUtterance(document.getElementById('res').innerText); ut.lang = currentLang==='es'?'es-US':currentLang==='en'?'en-US':'ht-HT'; window.speechSynthesis.speak(ut); }
 function shareWA(){ window.open("https://wa.me/?text="+encodeURIComponent(document.getElementById('res').innerText)); }
 function exportPDF(){ const content = document.getElementById('res').innerText; const myWindow = window.open('', '', 'width=800,height=600'); myWindow.document.write('<pre style="font-family:Arial; white-space:pre-wrap;">'+content+'</pre>'); myWindow.document.close(); myWindow.print(); }
