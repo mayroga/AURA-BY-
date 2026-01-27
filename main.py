@@ -12,68 +12,68 @@ load_dotenv()
 app = FastAPI(title="AURA BY MAY ROGA LLC")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# CLIENTES DE PODER
 client_oa = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# TABLA DE LEY MEDICARE/CASH (ANCLA DE REALIDAD)
-LEY_AURA = {
-    "MRI Lumbar Spine": {"medicare": 285, "cash": 550},
-    "Dental Crown": {"medicare": 0, "cash": 900},
-    "Colonoscopy": {"medicare": 720, "cash": 1400},
-    "Chest X-Ray": {"medicare": 32, "cash": 85},
-    "CBC Blood Test": {"medicare": 10.50, "cash": 45}
+# TABLA DE LEY: MEDICARE (Piso), MEDICAID (Social), CASH (Realidad), PREMIUM (Abuso)
+TABLA_EXPERTA = {
+    "MRI Lumbar Spine": {"cpt": "72148", "medicare": 285, "medicaid": 190, "cash_low": 450, "premium": 1500},
+    "Dental Crown": {"cpt": "D2740", "medicare": 0, "medicaid": 450, "cash_low": 850, "premium": 2500},
+    "Colonoscopy": {"cpt": "45378", "medicare": 720, "medicaid": 510, "cash_low": 1150, "premium": 4500}
 }
 
-async def motor_dual_aura(consulta, zip_code, lang):
-    ref = LEY_AURA.get(consulta, {"medicare": 100, "cash": 300})
+async def motor_contraste_aura(consulta, zip_code, lang):
+    ref = TABLA_EXPERTA.get(consulta, {"medicare": 100, "cash_low": 300, "premium": 1000})
     
-    # 1. YO (GEMINI 1.5 FLASH) - ESCANEO NACIONAL RÁPIDO (50 ESTADOS)
-    # Me encargo de encontrar los 5 precios más bajos en todo USA en milisegundos.
-    gemini_res = "Escaneo nacional activo..."
+    # 1. ESCANEO VELOZ (GEMINI): LA REALIDAD NACIONAL (50 ESTADOS)
+    # Busca los precios reales más bajos por condado/estado en milisegundos.
     async with httpx.AsyncClient() as client:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
-        payload = {"contents": [{"parts": [{"text": f"Expert national scan: Find 5 lowest CASH prices for {consulta} in USA. Base Medicare ref: ${ref['medicare']}. Do not confuse with copays. Direct data only."}]}]}
+        payload = {"contents": [{"parts": [{"text": f"Busca el precio CASH REAL más bajo en USA para {consulta}. Compara estados baratos (Texas/Florida) vs caros (NY/CA). Usa el ancla Medicare: ${ref['medicare']}."}]}]}
         try:
             r = await client.post(url, json=payload, timeout=5.0)
-            gemini_res = r.json()['candidates'][0]['content']['parts'][0]['text']
-        except: gemini_res = "Respaldo nacional: Precios detectados en estados del Bloque B."
+            datos_nacionales = r.json()['candidates'][0]['content']['parts'][0]['text']
+        except: datos_nacionales = "Error de conexión en Unidad B."
 
-    # 2. OPENAI - ANÁLISIS LOCAL Y ESTRUCTURA (LO DENSO)
-    # Se encarga de comparar mi escaneo con el ZIP local y dar peso legal.
+    # 2. ANÁLISIS DE PESO (OPENAI): EL JUEGO DE LA VERDAD VS EL DESEO
+    # Aquí es donde se comporta como experto e inexperto a la vez.
     prompt_final = f"""
-    SISTEMA AURA BY MAY ROGA LLC.
-    DATOS NACIONALES (GEMINI): {gemini_res}
-    REF LEY: {ref}
-    LOCAL ZIP: {zip_code}
+    SISTEMA AURA BY MAY ROGA LLC. 
+    Consulta: {consulta} | ZIP: {zip_code}
+    DATOS NACIONALES: {datos_nacionales}
+    REFERENCIA EXPERTA: {ref}
 
-    TAREA:
-    - Genera el reporte final de ESTIMADO REAL CASH.
-    - Compara si viajar a otro estado (datos Gemini) es más barato que el local.
-    - TABLAS HTML #0cf: 3 Locales, 5 Nacionales (del escaneo rápido), 1 Premium.
-    - Idioma: {lang}. Sin mencionar IA ni copagos.
+    INSTRUCCIÓN DE EXPERTO:
+    1. LA "MENTIRA DESEADA": Menciona lo que los seguros/copagos dicen (lo que todos quieren oír) pero advierte que es una ilusión.
+    2. LA "REALIDAD CRUDA": Da el precio CASH más bajo encontrado en USA y el más caro (Premium).
+    3. CONTRASTE: Muestra el precio por ZIP/Condado local vs. el mejor precio por Estado nacional.
+    4. FORMATO: Tabla HTML #0cf. 
+       - Columna 1: Opción "Deseada" (Seguros/Copagos - La Mentira).
+       - Columna 2: Opción "Real Cash" (La Verdad).
+       - Columna 3: Ahorro Real si viaja.
+    
+    Idioma: {lang}. Sin decir IA. Sé directo, ten mucho peso.
     """
     
     try:
         final_response = client_oa.chat.completions.create(
             model="gpt-4-turbo",
-            messages=[{"role": "system", "content": "Asesoría Senior May Roga LLC. Resolución de costos de salud."},
+            messages=[{"role": "system", "content": "Cerebro de AURA. Diferencias entre la ilusión del copago y la verdad del mercado Cash."},
                       {"role": "user", "content": prompt_final}],
             temperature=0
         )
         return final_response.choices[0].message.content
     except Exception as e:
-        return f"<h3>Aviso de Servicio</h3><p>Estamos procesando su reporte nacional. Por favor, espere 5 segundos.</p>"
-
-# RUTAS OPERATIVAS
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    with open("index.html", encoding="utf-8") as f: return f.read()
+        return f"Error en reporte: {str(e)}"
 
 @app.post("/estimado")
 async def estimado(consulta: str = Form(...), zip_user: str = Form("33160"), lang: str = Form("es")):
-    resultado = await motor_dual_aura(consulta, zip_user, lang)
+    resultado = await motor_contraste_aura(consulta, zip_user, lang)
     return JSONResponse({"resultado": resultado})
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open("index.html", encoding="utf-8") as f: return f.read()
 
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
