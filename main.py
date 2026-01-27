@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 # ==========================================
-# 1. GENERACIÓN AUTOMÁTICA (50 ESTADOS)
+# 1. INICIALIZACIÓN DE REPOSITORIOS (50 ESTADOS)
 # ==========================================
 ESTADOS_A = ["FL", "NY", "TX", "PA", "IL", "OH", "GA", "NC", "MI", "NJ", "VA", "WA", "AZ", "MA", "TN", "IN", "MO", "MD", "WI", "CO", "MN", "SC", "AL", "LA", "KY"]
 ESTADOS_B = ["CA", "OR", "OK", "UT", "NV", "IA", "AR", "MS", "KS", "CT", "NM", "NE", "WV", "ID", "HI", "NH", "ME", "MT", "RI", "DE", "SD", "ND", "AK", "VT", "WY"]
@@ -22,14 +22,17 @@ PROCEDIMIENTOS_BASE = {
     "Root Canal": 1100, "Cataract Surgery": 2800
 }
 
-def inicializar_sistema():
-    """Genera repositorios locales si no existen para blindaje total."""
-    for bloque, lista in [('data_bloque_A.json', ESTADOS_A), ('data_bloque_B.json', ESTADOS_B)]:
-        if not os.path.exists(bloque):
-            data = {p: {e: {"cash": round(v*random.uniform(0.8, 1.3), 2), "zip": "Local"} for e in lista} for p, v in PROCEDIMIENTOS_BASE.items()}
-            with open(bloque, 'w', encoding='utf-8') as f: json.dump(data, f)
+def inicializar_archivos():
+    # Bloque A
+    if not os.path.exists('data_bloque_A.json'):
+        data = {p: {e: {"cash": round(v*random.uniform(0.8, 1.2), 2), "zip": "33101"} for e in ESTADOS_A} for p, v in PROCEDIMIENTOS_BASE.items()}
+        with open('data_bloque_A.json', 'w') as f: json.dump(data, f)
+    # Bloque B
+    if not os.path.exists('data_bloque_B.json'):
+        data = {p: {e: {"cash": round(v*random.uniform(0.8, 1.2), 2), "zip": "90210"} for e in ESTADOS_B} for p, v in PROCEDIMIENTOS_BASE.items()}
+        with open('data_bloque_B.json', 'w') as f: json.dump(data, f)
 
-inicializar_sistema()
+inicializar_archivos()
 
 # ==========================================
 # 2. CONFIGURACIÓN CORE
@@ -53,40 +56,43 @@ PRICE_IDS = {
 }
 
 # ==========================================
-# 3. MOTOR DE ASESORÍA (ANTI-INVENTOS)
+# 3. MOTOR DE ASESORÍA DUAL (ANTI-INVENTOS)
 # ==========================================
 async def motor_aura_dual(consulta, zip_code, lang):
-    # Carga de Repositorios (Doble Tracción)
+    # Carga de Repositorios y Tabla de Ley
     try:
-        with open('data_bloque_A.json') as f: db_a = json.load(f).get(consulta, "Consultar base nacional")
-        with open('data_bloque_B.json') as f: db_b = json.load(f).get(consulta, "Consultar base nacional")
-        contexto_real = f"Bloque A: {db_a} | Bloque B: {db_b}"
+        with open('referencia_medicare.json', 'r') as f: ley = json.load(f).get(consulta, "Referencia general")
+        with open('data_bloque_A.json', 'r') as f: b_a = json.load(f).get(consulta, {})
+        with open('data_bloque_B.json', 'r') as f: b_b = json.load(f).get(consulta, {})
     except:
-        contexto_real = "Verificando bases externas..."
+        ley, b_a, b_b = "N/A", {}, {}
 
-    # Consulta SQL (Si está activa)
+    # Consulta SQL
     sql_data = "No disponible"
     if engine:
         try:
             with engine.connect() as conn:
-                res = conn.execute(text("SELECT provider_name, cash_price FROM health_system WHERE zip = :z LIMIT 5"), {"z": zip_code}).fetchall()
+                res = conn.execute(text("SELECT provider_name, cash_price, state FROM health_system WHERE zip = :z LIMIT 5"), {"z": zip_code}).fetchall()
                 if res: sql_data = str([dict(row) for row in res])
         except: pass
 
-    # Intercambio de información (Unidad A vs Unidad B)
     prompt = f"""
-    Eres la Asesoría AURA BY MAY ROGA LLC. 
-    REPOSITORIOS: {contexto_real} | SQL: {sql_data}
-    OBJETIVO: Dar estimados reales para {consulta} en ZIP {zip_code}.
-    REGLA: Compara Bloque A y B. Si el precio nacional es menor al local, notifícalo.
-    FILTRO: No aceptes precios fuera de lógica (MRI < $150 es falso).
-    FORMATO: 3 Locales, 5 Nacionales, 1 Premium. Tablas HTML #0cf.
-    Idioma: {lang}. No menciones procesos de IA.
+    SISTEMA AURA BY MAY ROGA LLC. 
+    REPOSITORIOS: Bloque A: {b_a} | Bloque B: {b_b}
+    TABLA LEY MEDICARE/MEDICAID: {ley}
+    DATOS SQL LOCALES: {sql_data}
+
+    TAREA: Generar reporte médico para {consulta} en ZIP {zip_code}.
+    1. Compara Bloque A y B. Si el precio nacional es menor al local, destaca el ahorro.
+    2. Usa la Tabla Ley como ancla para que los precios no sean inventados.
+    3. ESTRUCTURA: Tabla HTML con 3 Locales, 5 Nacionales (más baratos), 1 Premium.
+    4. ESTILO: Borde #0cf, fondo oscuro, texto blanco. No menciones IA.
+    Idioma: {lang}.
     """
     
     resp = openai.ChatCompletion.create(
         model="gpt-4-turbo",
-        messages=[{"role": "system", "content": "Especialista en costos de salud USA. Precisión absoluta."},
+        messages=[{"role": "system", "content": "Asesoría Profesional May Roga LLC. Precisión de 50 estados."},
                   {"role": "user", "content": prompt}],
         temperature=0
     )
@@ -108,21 +114,24 @@ async def estimado(consulta: str = Form(...), zip_user: str = Form("33160"), lan
 async def consultar_asesor(pregunta: str = Form(...), reporte_previo: str = Form(...)):
     resp = openai.ChatCompletion.create(
         model="gpt-4-turbo",
-        messages=[{"role": "system", "content": "Asesor humano AURA BY MAY ROGA LLC."},
-                  {"role": "user", "content": f"Contexto: {reporte_previo}. Duda: {pregunta}"}]
+        messages=[{"role": "system", "content": "Asesor Humano AURA BY MAY ROGA LLC. Resuelve dudas del reporte."},
+                  {"role": "user", "content": f"Contexto: {reporte_previo}. Pregunta: {pregunta}"}]
     )
     return {"respuesta_asesor": resp.choices[0].message.content}
 
 @app.post("/create-checkout-session")
 async def checkout(plan: str = Form(...)):
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[{"price": PRICE_IDS.get(plan), "quantity": 1}],
-        mode="payment" if plan != "special" else "subscription",
-        success_url="https://aura-by.onrender.com/?success=true",
-        cancel_url="https://aura-by.onrender.com/",
-    )
-    return {"url": session.url}
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{"price": PRICE_IDS.get(plan), "quantity": 1}],
+            mode="payment" if plan != "special" else "subscription",
+            success_url="https://aura-by.onrender.com/?success=true",
+            cancel_url="https://aura-by.onrender.com/",
+        )
+        return {"url": session.url}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
