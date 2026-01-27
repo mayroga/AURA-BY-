@@ -23,7 +23,28 @@
  
   .res-ask { color: #00d4ff; font-weight: bold; text-decoration: underline; }
   .res-top { color: #ffff00; font-weight: bold; }
+<div id="asesor-box" style="display:none; margin-top:30px; border:2px solid #ffff00; padding:20px; border-radius:20px;">
+    <h3 style="color:#ffff00;">💬 ¿Tiene dudas sobre este reporte?</h3>
+    <p style="font-size:0.9rem;">Como cliente de May Roga LLC, puede consultar directamente a nuestro asesor.</p>
+    <input type="text" id="pregunta-asesor" placeholder="Escriba su duda aquí...">
+    <button class="btn-pay" onclick="preguntarAsesor()" style="background:#ffff00; color:#000;">ENVIAR CONSULTA AL ASESOR</button>
+    <div id="resp-asesor" style="margin-top:15px; color:#00d4ff; font-style:italic;"></div>
+</div>
 
+<script>
+async def preguntarAsesor() {
+    const pregunta = document.getElementById('pregunta-asesor').value;
+    const reporte = document.getElementById('res').innerText;
+    
+    const fd = new FormData();
+    fd.append("pregunta", pregunta);
+    fd.append("reporte_previo", reporte);
+    
+    const res = await fetch("/consultar-asesor", {method:"POST", body:fd});
+    const data = await res.json();
+    document.getElementById('resp-asesor').innerText = data.respuesta_asesor;
+}
+</script>
   .donacion-box { border: 5px solid #ffff00; border-radius: 35px; padding: 30px; margin-top: 40px; }
   .btn-donar { background: #ffff00; color: #000; border: none; padding: 20px; border-radius: 15px; font-weight: 900; width: 100%; cursor: pointer; font-size: 1.6rem; }
 
