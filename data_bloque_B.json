@@ -1,1 +1,32 @@
-
+{
+  "MRI Lumbar Spine": {
+    "California": {"cash": 490, "zip_low": "90001"},
+    "Oklahoma": {"cash": 320, "zip_low": "73101"},
+    "Utah": {"cash": 340, "zip_low": "84101"}
+  },
+  "Dental Crown (Porcelain)": {
+    "Nevada": {"cash": 800, "zip_low": "89101"},
+    "Oregon": {"cash": 950, "zip_low": "97201"}
+  },
+  "Blood Test (Complete Panel)": {
+    "Mississippi": {"cash": 30, "zip_low": "39201"},
+    "Arkansas": {"cash": 32, "zip_low": "72201"}
+  },
+  "X-Ray Chest": { "California": {"cash": 110}, "Oklahoma": {"cash": 65} },
+  "Colonoscopy": { "Kansas": {"cash": 1000}, "Iowa": {"cash": 1050} },
+  "Emergency Room Visit (Level 3)": { "Nevada": {"cash": 750}, "New Mexico": {"cash": 680} },
+  "Physical Therapy Session": { "Idaho": {"cash": 95}, "Montana": {"cash": 100} },
+  "Cleaning Dental (Adult)": { "Utah": {"cash": 85}, "West Virginia": {"cash": 70} },
+  "CT Scan Abdomen": { "Nebraska": {"cash": 450}, "Hawaii": {"cash": 600} },
+  "Ultrasound Pelvic": { "New Hampshire": {"cash": 230}, "Maine": {"cash": 215} },
+  "Root Canal (Molar)": { "Oklahoma": {"cash": 900}, "South Dakota": {"cash": 980} },
+  "Ear Wax Removal": { "Delaware": {"cash": 70}, "Rhode Island": {"cash": 85} },
+  "Skin Biopsy": { "North Dakota": {"cash": 160}, "Vermont": {"cash": 190} },
+  "Prenatal Visit": { "California": {"cash": 180}, "Wyoming": {"cash": 155} },
+  "Flu Shot": { "General_B": {"cash": 22} },
+  "Diabetes Screening": { "Alaska": {"cash": 45} },
+  "Mental Health Intake": { "Connecticut": {"cash": 275} },
+  "Sleep Study": { "Oregon": {"cash": 1400} },
+  "Allergy Testing": { "Nevada": {"cash": 320} },
+  "Cataract Surgery (One Eye)": { "California": {"cash": 3100} }
+}
