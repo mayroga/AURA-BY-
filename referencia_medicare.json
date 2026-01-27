@@ -1,0 +1,44 @@
+{
+  "MRI Lumbar Spine (72148)": {
+    "medicare_allowable": 285.00,
+    "medicaid_avg": 190.00,
+    "fair_cash_price": 450.00,
+    "premium_limit": 1200.00
+  },
+  "Dental Crown Porcelain (D2740)": {
+    "medicare_allowable": 0.00,
+    "medicaid_avg": 450.00,
+    "fair_cash_price": 950.00,
+    "premium_limit": 2500.00
+  },
+  "Colonoscopy Diagnostic (45378)": {
+    "medicare_allowable": 720.00,
+    "medicaid_avg": 510.00,
+    "fair_cash_price": 1250.00,
+    "premium_limit": 3800.00
+  },
+  "Chest X-Ray (71045)": {
+    "medicare_allowable": 32.00,
+    "medicaid_avg": 24.00,
+    "fair_cash_price": 85.00,
+    "premium_limit": 250.00
+  },
+  "Complete Blood Count (85025)": {
+    "medicare_allowable": 10.50,
+    "medicaid_avg": 8.00,
+    "fair_cash_price": 45.00,
+    "premium_limit": 150.00
+  },
+  "Root Canal Molar (D3330)": {
+    "medicare_allowable": 0.00,
+    "medicaid_avg": 580.00,
+    "fair_cash_price": 1100.00,
+    "premium_limit": 2100.00
+  },
+  "ER Visit Level 3 (99283)": {
+    "medicare_allowable": 215.00,
+    "medicaid_avg": 140.00,
+    "fair_cash_price": 750.00,
+    "premium_limit": 2800.00
+  }
+}
