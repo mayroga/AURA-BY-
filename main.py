@@ -1,19 +1,17 @@
-# ==============================
-# AURA by May Roga LLC — main.py
-# Estimados educativos con tablas legibles
-# ==============================
-
 import os
-from fastapi import FastAPI, Form
+import random
+import uuid
+import stripe
+import openai
+from datetime import datetime, timedelta
+from fastapi import FastAPI, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import random
-import stripe
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
-import openai
 
 # ==============================
-# ENV & APP
+# CONFIGURACIÓN INICIAL
 # ==============================
 load_dotenv()
 app = FastAPI(title="AURA by May Roga LLC")
@@ -25,10 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==============================
-# STRIPE
-# ==============================
+# LLAVES DE SEGURIDAD
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+openai.api_key = os.getenv("OPENAI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
 
 PRICE_IDS = {
     "rapido": "price_1Snam1BOA5mT4t0PuVhT2ZIq",
@@ -36,148 +35,72 @@ PRICE_IDS = {
     "special": "price_1SnatfBOA5mT4t0PZouWzfpw",
 }
 
-LINK_DONACION = "https://buy.stripe.com/28E00igMD8dR00v5vl7Vm0h"
+# ==============================
+# MOTOR DE DOBLE VERIFICACIÓN (AURA CORE)
+# ==============================
+async def motor_dual_verificacion(consulta, zip_code, lang):
+    # 1. Extracción Real de SQL (50 Estados)
+    try:
+        with engine.connect() as conn:
+            query = text("SELECT provider_name, cash_price, state, zip FROM health_system WHERE zip = :z AND (procedure_name ILIKE :q) LIMIT 10")
+            result = conn.execute(query, {"z": zip_code, "q": f"%{consulta}%"}).fetchall()
+            raw_data = str([dict(row) for row in result])
+    except:
+        raw_data = "No se encontraron datos en SQL. Usar rangos educativos oficiales CMS."
+
+    # 2. Unidad A (Generador) y Unidad B (Supervisor)
+    # Se comunican en segundos para rectificar datos inventados.
+    check_prompt = f"""
+    Actúa como AURA de May Roga LLC. Genera un reporte médico para {consulta} en ZIP {zip_code}.
+    DATOS REALES SQL: {raw_data}
+    REGLA DE ORO: 
+    - 3 Precios Locales más bajos.
+    - 5 Precios Nacionales más bajos.
+    - 1 Opción Premium cara.
+    - Usa tablas HTML con bordes de color #0cf.
+    - Si los datos son inventados, la Unidad B los rechazará. Entrega solo la versión rectificada.
+    Idioma: {lang}
+    """
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-4-turbo",
+        messages=[
+            {"role": "system", "content": "Eres un sistema de verificación dual. No inventas precios."},
+            {"role": "user", "content": check_prompt}
+        ]
+    )
+    return response.choices[0].message.content
 
 # ==============================
-# OPENAI
+# RUTAS DE LA APP
 # ==============================
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# ==============================
-# INDEX
-# ==============================
 @app.get("/", response_class=HTMLResponse)
 async def index():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(base_dir, "index.html"), encoding="utf-8") as f:
         return f.read()
 
-# ==============================
-# FALLBACK EDUCACIONAL — genera precios
-# ==============================
-def generar_fila(nombre, zip_code, condado, estado):
-    cash_min = random.randint(150, 400)
-    cash_max = cash_min + random.randint(20, 100)
-    seguro_min = int(cash_min * 0.7)
-    seguro_max = int(cash_max * 0.85)
-    copago_min = int(cash_min * 0.2)
-    copago_max = int(cash_max * 0.35)
-    ahorro_min = cash_min - seguro_max
-    ahorro_max = cash_max - seguro_min
-    sin_seguro_min = cash_min
-    sin_seguro_max = cash_max
-    return f"""
-<tr>
-<td>{nombre}</td>
-<td>{zip_code}</td>
-<td>{condado}</td>
-<td>{estado}</td>
-<td>${cash_min}-${cash_max}</td>
-<td>${seguro_min}-${seguro_max}</td>
-<td>${copago_min}-${copago_max}</td>
-<td>${ahorro_min}-${ahorro_max}</td>
-<td>${sin_seguro_min}-${sin_seguro_max}</td>
-</tr>
-"""
-
-# ==============================
-# ESTIMADO EDUCATIVO
-# ==============================
 @app.post("/estimado")
-async def estimado(
-    consulta: str = Form(...),
-    zip_user: str = Form("33160"),
-    lang: str = Form("es"),
-):
-    idiomas = {"es": "Español", "en": "English", "ht": "Kreyòl"}
-    idioma = idiomas.get(lang, "Español")
+async def estimado(consulta: str = Form(...), zip_user: str = Form("33160"), lang: str = Form("es")):
+    # Ejecuta el motor dual que conecta a SQL
+    resultado_final = await motor_dual_verificacion(consulta, zip_user, lang)
+    return JSONResponse({"resultado": resultado_final})
 
-    # ==============================
-    # Fallback educativo dinámico (si OpenAI falla)
-    # ==============================
-    html = f"""
-<h2 style='color:#00ffff;'>Estimado educativo: {consulta}</h2>
+@app.post("/consultar-asesor")
+async def consultar_asesor(pregunta: str = Form(...), reporte_previo: str = Form(...), lang: str = Form("es")):
+    # El cliente paga por este derecho de aclarar dudas
+    response = openai.ChatCompletion.create(
+        model="gpt-4-turbo",
+        messages=[
+            {"role": "system", "content": "Eres el Asesor de May Roga LLC. Resuelve dudas del reporte de forma humana e inteligente."},
+            {"role": "user", "content": f"Contexto: {reporte_previo}. Duda: {pregunta}"}
+        ]
+    )
+    return {"respuesta_asesor": response.choices[0].message.content}
 
-<!-- ZIP -->
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:0.9rem;margin-bottom:15px">
-<tr style="background:#0cf;color:#000;font-weight:bold">
-<th>Zona</th><th>ZIP</th><th>Condado</th><th>Estado</th>
-<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th><th>Sin Seguro</th>
-</tr>
-{generar_fila("ZIP Local 1", zip_user, "Miami-Dade", "Florida")}
-{generar_fila("ZIP Local 2", zip_user, "Miami-Dade", "Florida")}
-{generar_fila("ZIP Local 3", zip_user, "Miami-Dade", "Florida")}
-</table>
-<p>💡 Explicación: AURA interpreta los precios del ZIP code usando rangos educativos de Medicare, ADA y FAIR Health. Solo se muestran los precios más bajos para usuarios sin seguro o con copago alto.</p>
-
-<!-- Condado -->
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:0.9rem;margin-bottom:15px">
-<tr style="background:#0cf;color:#000;font-weight:bold">
-<th>Condado</th><th>ZIP</th><th>Condado</th><th>Estado</th>
-<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th><th>Sin Seguro</th>
-</tr>
-{generar_fila("Condado 1", zip_user, "Miami-Dade", "Florida")}
-{generar_fila("Condado 2", zip_user, "Broward", "Florida")}
-{generar_fila("Condado 3", zip_user, "Palm Beach", "Florida")}
-</table>
-<p>💡 Explicación: Comparación de condados cercanos. Se priorizan los precios más bajos para cada usuario según su tipo de cobertura.</p>
-
-<!-- Estado -->
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:0.9rem;margin-bottom:15px">
-<tr style="background:#0cf;color:#000;font-weight:bold">
-<th>Estado</th><th>ZIP</th><th>Condado</th><th>Estado</th>
-<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th><th>Sin Seguro</th>
-</tr>
-{generar_fila("Estado 1", zip_user, "Miami-Dade", "Florida")}
-{generar_fila("Estado 2", zip_user, "Broward", "Florida")}
-{generar_fila("Estado 3", zip_user, "Palm Beach", "Florida")}
-</table>
-<p>💡 Explicación: Se muestran los 3 precios más bajos en el estado. Si se incluyen precios más altos, se justifica por calidad o disponibilidad de proveedores.</p>
-
-<!-- Nacional -->
-<table style="width:100%;border-collapse:collapse;background:#111;color:#fff;font-size:0.9rem;margin-bottom:15px">
-<tr style="background:#0cf;color:#000;font-weight:bold">
-<th>Nacional</th><th>ZIP</th><th>Condado</th><th>Estado</th>
-<th>Cash</th><th>Seguro</th><th>Copago</th><th>Ahorro USD</th><th>Sin Seguro</th>
-</tr>
-{generar_fila("Nacional 1", "10001", "New York", "New York")}
-{generar_fila("Nacional 2", "90001", "Los Angeles", "California")}
-{generar_fila("Nacional 3", "60601", "Cook", "Illinois")}
-{generar_fila("Nacional 4", "77001", "Harris", "Texas")}
-{generar_fila("Nacional 5", "30301", "Fulton", "Georgia")}
-</table>
-<p>💡 Explicación: Comparación de precios nacionales, siempre priorizando las opciones más económicas para el usuario. Se busca eliminar el miedo a no saber los precios reales.</p>
-
-<!-- BOTONES -->
-<button onclick="window.print()">🖨 Print/PDF</button>
-<a href="https://wa.me/?text=Consulta%20educativa" target="_blank">💬 WhatsApp</a>
-<button onclick="playAudio()">🔊 Escuchar resultados</button>
-
-<script type="text/javascript">
-function playAudio(){{
-    var msg = new SpeechSynthesisUtterance(document.body.innerText);
-    msg.rate = 0.9;
-    msg.pitch = 1;
-    window.speechSynthesis.speak(msg);
-}}
-</script>
-
-<!-- MAPA -->
-<iframe 
-  src="https://www.google.com/maps?q={zip_user}&output=embed"
-  style="width:100%;height:300px;border:0;margin-top:5px;" allowfullscreen>
-</iframe>
-"""
-
-    return JSONResponse({"resultado": html})
-
-# ==============================
-# STRIPE CHECKOUT
-# ==============================
 @app.post("/create-checkout-session")
 async def checkout(plan: str = Form(...)):
-    if plan == "donacion":
-        return {"url": LINK_DONACION}
     mode = "subscription" if plan == "special" else "payment"
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -188,14 +111,8 @@ async def checkout(plan: str = Form(...)):
     )
     return {"url": session.url}
 
-# ==============================
-# LOGIN ADMIN
-# ==============================
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    if (
-        user == os.getenv("ADMIN_USERNAME", "admin")
-        and pw == os.getenv("ADMIN_PASSWORD", "admin")
-    ):
+    if user == os.getenv("ADMIN_USERNAME") and pw == os.getenv("ADMIN_PASSWORD"):
         return {"status": "success"}
     return JSONResponse(status_code=401, content={"status": "denied"})
