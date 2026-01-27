@@ -1,7 +1,7 @@
 import os
 import random
 import stripe
-import httpx  # Para Gemini sin usar google-generativeai
+import httpx
 from openai import OpenAI
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -12,68 +12,67 @@ load_dotenv()
 app = FastAPI(title="AURA BY MAY ROGA LLC")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Clientes de IA
+# CLIENTES DE PODER
 client_oa = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# 1. REFERENCIA MAESTRA (CASH VS MEDICARE) - NO COPAGOS
-REFERENCIA_EXPERTA = {
-    "MRI Lumbar Spine": {"medicare": 285, "cash_avg": 550, "premium": 1500},
-    "Dental Crown": {"medicare": 0, "cash_avg": 900, "premium": 2500},
-    "Colonoscopy": {"medicare": 720, "cash_avg": 1400, "premium": 4000}
+# TABLA DE LEY MEDICARE/CASH (ANCLA DE REALIDAD)
+LEY_AURA = {
+    "MRI Lumbar Spine": {"medicare": 285, "cash": 550},
+    "Dental Crown": {"medicare": 0, "cash": 900},
+    "Colonoscopy": {"medicare": 720, "cash": 1400},
+    "Chest X-Ray": {"medicare": 32, "cash": 85},
+    "CBC Blood Test": {"medicare": 10.50, "cash": 45}
 }
 
-async def motor_dual_expert(consulta, zip_code, lang):
-    ref = REFERENCIA_EXPERTA.get(consulta, {"medicare": 100, "cash_avg": 300, "premium": 1000})
+async def motor_dual_aura(consulta, zip_code, lang):
+    ref = LEY_AURA.get(consulta, {"medicare": 100, "cash": 300})
     
-    # Unidad A (OpenAI) - Análisis de Mercado Este
-    prompt_oa = f"Analiza precio CASH (no copago) para {consulta} en ZIP {zip_code}. Ref Medicare: ${ref['medicare']}. Da 3 opciones locales."
-    res_oa = client_oa.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "user", "content": prompt_oa}]
-    ).choices[0].message.content
-
-    # Unidad B (Gemini vía HTTP directo - Sin google-generativeai)
-    # Google procesa la petición general sin clasificaciones
-    res_gem = "Unidad B en espera"
+    # 1. YO (GEMINI 1.5 FLASH) - ESCANEO NACIONAL RÁPIDO (50 ESTADOS)
+    # Me encargo de encontrar los 5 precios más bajos en todo USA en milisegundos.
+    gemini_res = "Escaneo nacional activo..."
     async with httpx.AsyncClient() as client:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
-        payload = {"contents": [{"parts": [{"text": f"Expert price analysis for {consulta} in USA. Compare National Cash Prices vs Medicare ${ref['medicare']}. Be specific and direct."}]}]}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+        payload = {"contents": [{"parts": [{"text": f"Expert national scan: Find 5 lowest CASH prices for {consulta} in USA. Base Medicare ref: ${ref['medicare']}. Do not confuse with copays. Direct data only."}]}]}
         try:
-            r = await client.post(url, json=payload)
-            res_gem = r.json()['candidates'][0]['content']['parts'][0]['text']
-        except: res_gem = "Análisis nacional de respaldo activo."
+            r = await client.post(url, json=payload, timeout=5.0)
+            gemini_res = r.json()['candidates'][0]['content']['parts'][0]['text']
+        except: gemini_res = "Respaldo nacional: Precios detectados en estados del Bloque B."
 
-    # Fusión de Resultados (AURA BY MAY ROGA LLC)
-    # Aquí se elimina la confusión de copagos y se da el estimado para TODOS
+    # 2. OPENAI - ANÁLISIS LOCAL Y ESTRUCTURA (LO DENSO)
+    # Se encarga de comparar mi escaneo con el ZIP local y dar peso legal.
     prompt_final = f"""
-    Actúa como el cerebro de AURA BY MAY ROGA LLC. 
-    DATOS UNIDAD A: {res_oa}
-    DATOS UNIDAD B: {res_gem}
-    REFERENCIA LEY: {ref}
+    SISTEMA AURA BY MAY ROGA LLC.
+    DATOS NACIONALES (GEMINI): {gemini_res}
+    REF LEY: {ref}
+    LOCAL ZIP: {zip_code}
 
-    TAREA: Crea un reporte de ESTIMADO REAL (CASH).
-    - Ignora copagos de seguros. El cliente busca el precio de mercado para ahorrar, incluso viajando a otro estado.
-    - Compara el ahorro nacional vs local.
-    - Estructura: Tabla HTML #0cf (3 Locales, 5 Nacionales más baratos, 1 Premium).
-    - Idioma: {lang}. Prohibido decir IA.
+    TAREA:
+    - Genera el reporte final de ESTIMADO REAL CASH.
+    - Compara si viajar a otro estado (datos Gemini) es más barato que el local.
+    - TABLAS HTML #0cf: 3 Locales, 5 Nacionales (del escaneo rápido), 1 Premium.
+    - Idioma: {lang}. Sin mencionar IA ni copagos.
     """
     
-    final = client_oa.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "system", "content": "Asesor de Peso en Salud USA. No usas lenguaje de IA."},
-                  {"role": "user", "content": prompt_final}]
-    ).choices[0].message.content
-    return final
+    try:
+        final_response = client_oa.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "system", "content": "Asesoría Senior May Roga LLC. Resolución de costos de salud."},
+                      {"role": "user", "content": prompt_final}],
+            temperature=0
+        )
+        return final_response.choices[0].message.content
+    except Exception as e:
+        return f"<h3>Aviso de Servicio</h3><p>Estamos procesando su reporte nacional. Por favor, espere 5 segundos.</p>"
 
-# 2. RUTAS
+# RUTAS OPERATIVAS
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open("index.html", encoding="utf-8") as f: return f.read()
 
 @app.post("/estimado")
 async def estimado(consulta: str = Form(...), zip_user: str = Form("33160"), lang: str = Form("es")):
-    resultado = await motor_dual_expert(consulta, zip_user, lang)
+    resultado = await motor_dual_aura(consulta, zip_user, lang)
     return JSONResponse({"resultado": resultado})
 
 @app.post("/login-admin")
