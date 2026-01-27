@@ -1,89 +1,83 @@
 import os
-import json
 import random
 import stripe
-import openai
+import httpx  # Para Gemini sin usar google-generativeai
+from openai import OpenAI
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-# 1. CONFIGURACIÓN E IDENTIDAD
 load_dotenv()
 app = FastAPI(title="AURA BY MAY ROGA LLC")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Clientes de IA
+client_oa = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# Conexión Resiliente: Si falla SQL, el sistema NO se detiene
-try:
-    engine = create_engine(os.getenv("DATABASE_URL"), pool_pre_ping=True)
-except:
-    engine = None
-
-# 2. TABLA DE LEY INTEGRADA (Blindaje Anti-Inventos)
-LEY_MEDICARE = {
-    "MRI Lumbar Spine": {"base": 285.00, "fair": 450.00, "max": 1200.00},
-    "Dental Crown": {"base": 450.00, "fair": 950.00, "max": 2500.00},
-    "Colonoscopy": {"base": 720.00, "fair": 1250.00, "max": 3800.00},
-    "Chest X-Ray": {"base": 32.00, "fair": 85.00, "max": 250.00},
-    "CBC Blood Test": {"base": 10.50, "fair": 45.00, "max": 150.00}
+# 1. REFERENCIA MAESTRA (CASH VS MEDICARE) - NO COPAGOS
+REFERENCIA_EXPERTA = {
+    "MRI Lumbar Spine": {"medicare": 285, "cash_avg": 550, "premium": 1500},
+    "Dental Crown": {"medicare": 0, "cash_avg": 900, "premium": 2500},
+    "Colonoscopy": {"medicare": 720, "cash_avg": 1400, "premium": 4000}
 }
 
-# 3. MOTOR DE UNIFICACIÓN (Doble Tracción + SQL)
-async def motor_aura_total(consulta, zip_code, lang):
-    # Generación de contexto de 50 estados en tiempo real
-    ref = LEY_MEDICARE.get(consulta, {"base": 100, "fair": 300, "max": 1000})
+async def motor_dual_expert(consulta, zip_code, lang):
+    ref = REFERENCIA_EXPERTA.get(consulta, {"medicare": 100, "cash_avg": 300, "premium": 1000})
     
-    # Simulación de estados (Doble Tracción)
-    est_a = {f"Estado_{i}": round(ref['fair']*random.uniform(0.8, 1.1), 2) for i in range(3)}
-    est_b = {f"Estado_{j}": round(ref['fair']*random.uniform(0.7, 0.9), 2) for j in range(3)}
+    # Unidad A (OpenAI) - Análisis de Mercado Este
+    prompt_oa = f"Analiza precio CASH (no copago) para {consulta} en ZIP {zip_code}. Ref Medicare: ${ref['medicare']}. Da 3 opciones locales."
+    res_oa = client_oa.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "user", "content": prompt_oa}]
+    ).choices[0].message.content
 
-    sql_data = "Respaldo activo"
-    if engine:
+    # Unidad B (Gemini vía HTTP directo - Sin google-generativeai)
+    # Google procesa la petición general sin clasificaciones
+    res_gem = "Unidad B en espera"
+    async with httpx.AsyncClient() as client:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
+        payload = {"contents": [{"parts": [{"text": f"Expert price analysis for {consulta} in USA. Compare National Cash Prices vs Medicare ${ref['medicare']}. Be specific and direct."}]}]}
         try:
-            with engine.connect() as conn:
-                res = conn.execute(text("SELECT provider_name, cash_price FROM health_system WHERE zip = :z LIMIT 3"), {"z": zip_code}).fetchall()
-                if res: sql_data = str([dict(row) for row in res])
-        except: pass
+            r = await client.post(url, json=payload)
+            res_gem = r.json()['candidates'][0]['content']['parts'][0]['text']
+        except: res_gem = "Análisis nacional de respaldo activo."
 
-    prompt = f"""
-    SISTEMA AURA BY MAY ROGA LLC. 
-    LEY MEDICARE: {ref}
-    ESTADOS ESTE: {est_a} | ESTADOS OESTE: {est_b}
-    LOCAL SQL: {sql_data}
+    # Fusión de Resultados (AURA BY MAY ROGA LLC)
+    # Aquí se elimina la confusión de copagos y se da el estimado para TODOS
+    prompt_final = f"""
+    Actúa como el cerebro de AURA BY MAY ROGA LLC. 
+    DATOS UNIDAD A: {res_oa}
+    DATOS UNIDAD B: {res_gem}
+    REFERENCIA LEY: {ref}
 
-    TAREA: Generar reporte médico profesional para {consulta} en ZIP {zip_code}.
-    REGLA: Cruza los datos. Si el Oeste es más barato, recomiéndalo. 
-    FORMATO: Tablas HTML #0cf. 3 Locales, 5 Nacionales, 1 Premium.
-    PROHIBIDO: Mencionar IA o errores de conexión. Idioma: {lang}.
+    TAREA: Crea un reporte de ESTIMADO REAL (CASH).
+    - Ignora copagos de seguros. El cliente busca el precio de mercado para ahorrar, incluso viajando a otro estado.
+    - Compara el ahorro nacional vs local.
+    - Estructura: Tabla HTML #0cf (3 Locales, 5 Nacionales más baratos, 1 Premium).
+    - Idioma: {lang}. Prohibido decir IA.
     """
     
-    resp = openai.ChatCompletion.create(
+    final = client_oa.chat.completions.create(
         model="gpt-4-turbo",
-        messages=[{"role": "system", "content": "Asesoría experta May Roga LLC. Resolución inmediata."},
-                  {"role": "user", "content": prompt}],
-        temperature=0
-    )
-    return resp.choices[0].message.content
+        messages=[{"role": "system", "content": "Asesor de Peso en Salud USA. No usas lenguaje de IA."},
+                  {"role": "user", "content": prompt_final}]
+    ).choices[0].message.content
+    return final
 
-# 4. RUTAS (FUNCIONAMIENTO GARANTIZADO)
+# 2. RUTAS
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open("index.html", encoding="utf-8") as f: return f.read()
 
 @app.post("/estimado")
 async def estimado(consulta: str = Form(...), zip_user: str = Form("33160"), lang: str = Form("es")):
-    resultado = await motor_aura_total(consulta, zip_user, lang)
+    resultado = await motor_dual_expert(consulta, zip_user, lang)
     return JSONResponse({"resultado": resultado})
 
 @app.post("/login-admin")
 async def login_admin(user: str = Form(...), pw: str = Form(...)):
-    # Validación infalible contra variables de entorno
     if user == os.getenv("ADMIN_USERNAME") and pw == os.getenv("ADMIN_PASSWORD"):
         return {"status": "success"}
     return JSONResponse(status_code=401, content={"status": "denied"})
-
-# El resto de rutas (Stripe/Asesor) siguen la misma lógica simplificada
